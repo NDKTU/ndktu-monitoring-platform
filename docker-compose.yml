@@ -1,0 +1,30 @@
+services:
+  database:
+    image: postgres:17-alpine
+    container_name: ndktu_db
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${name:-camera_base}
+      POSTGRES_USER: ${user:-bekzod}
+      POSTGRES_PASSWORD: ${password:-qwerty}
+    ports:
+      - "${port:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: ndktu_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${pgadmin_email:-admin@admin.com}
+      PGADMIN_DEFAULT_PASSWORD: ${pgadmin_password:-admin}
+    ports:
+      - "${pgadmin_port:-5050}:80"
+    depends_on:
+      - database
+
+volumes:
+  postgres_data:        
