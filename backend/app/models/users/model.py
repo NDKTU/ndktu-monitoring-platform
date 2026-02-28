@@ -14,6 +14,7 @@ class User(Base, IdIntPk, TimestampMixin):
     
     username: Mapped[str] = mapped_column(String(50), nullable=False)
     password: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    image: Mapped[str | None] = mapped_column(String, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     in_work: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     
