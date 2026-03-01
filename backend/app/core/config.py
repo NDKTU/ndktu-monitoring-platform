@@ -10,7 +10,10 @@ class DatabaseConfig(BaseModel):
     password: str
     host: str
     port: int
-
+    echo: bool = False
+    echo_pool: bool = False
+    pool_size: int = 5
+    max_overflow: int = 10
 
     @property
     def url(self) -> str:
@@ -34,7 +37,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    database: DatabaseConfig
-    app: AppConfig
+    database: DatabaseConfig = DatabaseConfig()
+    app: AppConfig = AppConfig()
 
 settings = Settings()
