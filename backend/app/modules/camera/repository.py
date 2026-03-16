@@ -9,7 +9,6 @@ from app.modules.camera.schemas import (
     CameraListResponse,
     CameraResponse
 )
-from app.modules.camera.stream import camera_manager
 
 
 class CameraRepository:
@@ -91,15 +90,6 @@ class CameraRepository:
         await self.session.commit()
         await self.session.refresh(db_camera)
         
-        # Start the background stream
-        camera_manager.start_stream(
-            camera_id=db_camera.id,
-            device_ip=db_camera.device_ip,
-            username=db_camera.username,
-            password=db_camera.password,
-            direction=db_camera.direction.value
-        )
-        
         return db_camera
 
     async def disconnect_camera(self, camera_id: int) -> Cameras | None:
@@ -109,9 +99,6 @@ class CameraRepository:
         db_camera.is_active = False
         await self.session.commit()
         await self.session.refresh(db_camera)
-        
-        # Stop background stream
-        camera_manager.stop_stream(camera_id=db_camera.id)
         
         return db_camera
 
@@ -126,13 +113,5 @@ class CameraRepository:
             await self.session.commit()
             await self.session.refresh(db_camera)
         
-        # Restart background stream
-        camera_manager.restart_stream(
-            camera_id=db_camera.id,
-            device_ip=db_camera.device_ip,
-            username=db_camera.username,
-            password=db_camera.password,
-            direction=db_camera.direction.value
-        )
         
         return db_camera

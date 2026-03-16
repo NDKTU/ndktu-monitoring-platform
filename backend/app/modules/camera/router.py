@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db_helper import db_helper
@@ -46,10 +46,7 @@ async def get_camera(
     camera_id: int,
     service: CameraService = Depends(get_camera_service)
 ):
-    camera = await service.get_camera(camera_id)
-    if not camera:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
-    return camera
+    return await service.get_camera(camera_id)
 
 
 @router.put("/{camera_id}", response_model=CameraResponse)
@@ -58,10 +55,7 @@ async def update_camera(
     camera: CameraUpdateRequest,
     service: CameraService = Depends(get_camera_service)
 ):
-    updated = await service.update_camera(camera_id, camera)
-    if not updated:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
-    return updated
+    return await service.update_camera(camera_id, camera)
 
 
 @router.delete("/{camera_id}", response_model=CameraResponse)
@@ -69,10 +63,7 @@ async def delete_camera(
     camera_id: int,
     service: CameraService = Depends(get_camera_service)
 ):
-    deleted = await service.delete_camera(camera_id)
-    if not deleted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
-    return deleted
+    return await service.delete_camera(camera_id)
 
 
 @router.post("/{camera_id}/connect", response_model=CameraResponse)
@@ -80,10 +71,7 @@ async def connect_camera(
     camera_id: int,
     service: CameraService = Depends(get_camera_service)
 ):
-    connected = await service.connect_camera(camera_id)
-    if not connected:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
-    return connected
+    return await service.connect_camera(camera_id)
 
 
 @router.post("/{camera_id}/disconnect", response_model=CameraResponse)
@@ -91,10 +79,7 @@ async def disconnect_camera(
     camera_id: int,
     service: CameraService = Depends(get_camera_service)
 ):
-    disconnected = await service.disconnect_camera(camera_id)
-    if not disconnected:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
-    return disconnected
+    return await service.disconnect_camera(camera_id)
 
 
 @router.post("/{camera_id}/restart", response_model=CameraResponse)
@@ -102,7 +87,4 @@ async def restart_camera(
     camera_id: int,
     service: CameraService = Depends(get_camera_service)
 ):
-    restarted = await service.restart_camera(camera_id)
-    if not restarted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
-    return restarted
+    return await service.restart_camera(camera_id)

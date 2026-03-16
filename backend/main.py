@@ -20,11 +20,9 @@ app = FastAPI(lifespan=lifespan)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-from app.modules.camera.router import router as camera_router
-from app.modules.user.router import router as user_router
+from app.modules.router import router as api_router
 
-app.include_router(camera_router)
-app.include_router(user_router)
+app.include_router(api_router)
 
 
 if __name__ == "__main__":

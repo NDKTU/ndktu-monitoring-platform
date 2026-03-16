@@ -1,29 +1,79 @@
+from fastapi import HTTPException, status
+from app.models.cameras.model import Cameras
+from app.modules.camera.repository import CameraRepository
+from app.modules.camera.schemas import (
+    CameraCreateRequest,
+    CameraUpdateRequest,
+    CameraListRequest,
+    CameraListResponse,
+    CameraResponse
+)
+from app.modules.camera.stream import camera_manager
 
 
 class CameraService:
     def __init__(self, repository: CameraRepository) -> None:
         self.repository = repository
 
-    async def create_camera(self, camera: CameraCreate) -> Camera:
+    async def create_camera(self, camera: CameraCreateRequest) -> Cameras:
         return await self.repository.create_camera(camera)
 
     async def list_cameras(self, camera_list_request: CameraListRequest) -> CameraListResponse:
         return await self.repository.list_cameras(camera_list_request)
 
-    async def get_camera(self, camera_id: int) -> Camera | None:
-        return await self.repository.get_camera(camera_id)
+    async def get_camera(self, camera_id: int) -> Cameras:
+        camera = await self.repository.get_camera(camera_id)
+        if not camera:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
+        return camera
 
-    async def update_camera(self, camera_id: int, camera: CameraUpdate) -> Camera | None:
-        return await self.repository.update_camera(camera_id, camera)
+    async def update_camera(self, camera_id: int, camera: CameraUpdateRequest) -> Cameras:
+        updated = await self.repository.update_camera(camera_id, camera)
+        if not updated:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
+        return updated
 
-    async def delete_camera(self, camera_id: int) -> Camera | None:
-        return await self.repository.delete_camera(camera_id)
+    async def delete_camera(self, camera_id: int) -> Cameras:
+        deleted = await self.repository.delete_camera(camera_id)
+        if not deleted:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
+        return deleted
 
-    async def connect_camera(self, camera_id: int) -> Camera | None:
-        return await self.repository.connect_camera(camera_id)
+    async def connect_camera(self, camera_id: int) -> Cameras:
+        db_camera = await self.repository.connect_camera(camera_id)
+        if not db_camera:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
+            
+        # Start the background stream
+        camera_manager.start_stream(
+            camera_id=db_camera.id,
+            device_ip=db_camera.device_ip,
+            username=db_camera.username,
+            password=db_camera.password,
+            direction=db_camera.direction.value
+        )
+        return db_camera
 
-    async def disconnect_camera(self, camera_id: int) -> Camera | None:
-        return await self.repository.disconnect_camera(camera_id)
+    async def disconnect_camera(self, camera_id: int) -> Cameras:
+        db_camera = await self.repository.disconnect_camera(camera_id)
+        if not db_camera:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
+            
+        # Stop background stream
+        camera_manager.stop_stream(camera_id=db_camera.id)
+        return db_camera
 
-    async def restart_camera(self, camera_id: int) -> Camera | None:
-        return await self.repository.restart_camera(camera_id)
+    async def restart_camera(self, camera_id: int) -> Cameras:
+        db_camera = await self.repository.restart_camera(camera_id)
+        if not db_camera:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
+            
+        # Restart background stream
+        camera_manager.restart_stream(
+            camera_id=db_camera.id,
+            device_ip=db_camera.device_ip,
+            username=db_camera.username,
+            password=db_camera.password,
+            direction=db_camera.direction.value
+        )
+        return db_camera

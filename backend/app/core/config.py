@@ -37,7 +37,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    database: DatabaseConfig = DatabaseConfig()
-    app: AppConfig = AppConfig()
+    database: DatabaseConfig
+    app: AppConfig
 
 settings = Settings()
