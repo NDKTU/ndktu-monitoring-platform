@@ -32,9 +32,9 @@ async def create_user(
     return await service.create_user(user)
 
 
-@router.post("/list", response_model=UserListResponse)
+@router.get("/list", response_model=UserListResponse)
 async def list_users(
-    request: UserListRequest,
+    request: UserListRequest = Depends(),
     service: UserService = Depends(get_user_service)
 ):
     return await service.list_users(request)
