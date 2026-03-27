@@ -49,7 +49,8 @@ class UserRepository:
         )
 
     async def get_user(self, user_id: int) -> User | None:
-        return await self.session.execute(select(User).where(User.id == user_id)).scalar()
+        result = await self.session.execute(select(User).where(User.id == user_id))
+        return result.scalar()
 
     async def update_user(self, user_id: int, user: UserUpdateRequest) -> User | None:
         db_user = await self.get_user(user_id)

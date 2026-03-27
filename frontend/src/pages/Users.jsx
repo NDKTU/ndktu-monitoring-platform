@@ -3,12 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { userApi } from '../api';
 import { Plus, Trash2, User, UserCheck, UserX, Search } from 'lucide-react';
 import Modal from '../components/Modal';
+import ConfirmModal from '../components/ConfirmModal';
 
 const UsersList = () => {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterActive, setFilterActive] = useState('all');
   const [filterInWork, setFilterInWork] = useState('all');
@@ -54,16 +57,20 @@ const UsersList = () => {
     }
   };
 
-  const handleDelete = async (id, e) => {
-    e.stopPropagation();
-    if (window.confirm('Delete this user?')) {
-      try {
-        await userApi.delete(id);
-        fetchUsers();
-      } catch (err) {
-        alert('Error deleting user');
-      }
+  const handleDelete = async () => {
+    if (!userToDelete) return;
+    try {
+      await userApi.delete(userToDelete);
+      fetchUsers();
+    } catch (err) {
+      alert('Error deleting user');
     }
+  };
+
+  const openConfirm = (id, e) => {
+    e.stopPropagation();
+    setUserToDelete(id);
+    setIsConfirmOpen(true);
   };
 
   return (
@@ -151,7 +158,7 @@ const UsersList = () => {
                     </div>
                   </td>
                   <td onClick={e => e.stopPropagation()}>
-                    <button className="btn btn-danger" onClick={(e) => handleDelete(user.id, e)}>
+                    <button className="btn btn-danger" onClick={(e) => openConfirm(user.id, e)}>
                       <Trash2 size={18} />
                     </button>
                   </td>
@@ -198,6 +205,15 @@ const UsersList = () => {
           </div>
         </form>
       </Modal>
+
+      <ConfirmModal 
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete User"
+        message="Are you sure you want to delete this user? This action cannot be undone."
+        confirmText="Delete User"
+      />
     </div>
   );
 };

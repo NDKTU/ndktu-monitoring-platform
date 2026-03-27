@@ -61,11 +61,11 @@ const UserDetail = () => {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div className="glass-card" style={{ padding: '1rem', background: 'rgba(15, 23, 42, 0.3)' }}>
+            <div className="glass-card" style={{ padding: '1rem', background: 'var(--glass)' }}>
               <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>User ID</div>
               <div style={{ fontWeight: 600 }}>{user.id}</div>
             </div>
-            <div className="glass-card" style={{ padding: '1rem', background: 'rgba(15, 23, 42, 0.3)' }}>
+            <div className="glass-card" style={{ padding: '1rem', background: 'var(--glass)' }}>
               <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Employment Status</div>
               <div style={{ fontWeight: 600 }}>{user.in_work ? 'In Work' : 'Out of Office'}</div>
             </div>

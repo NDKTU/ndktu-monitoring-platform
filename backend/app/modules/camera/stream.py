@@ -22,6 +22,7 @@ class HikiVisionConnection:
         self.direction = direction
         self.url = f"http://{self.device_ip}/ISAPI/Event/notification/alertStream?format=json"
         self.boundary = b"--MIME_boundary"
+        self.current_image_path: str | None = None
 
     async def connection_stream(self):
         """Connect to Hikvision device and yield each multipart 'part' as bytes."""
@@ -50,7 +51,7 @@ class HikiVisionConnection:
                         if part.strip():
                             yield part
 
-    async def publish_event(self, employee_no: str, dt_str: str):
+    async def publish_event(self, employee_no: str, dt_str: str, image_path: str | None = None):
         try:
             # Parse datetime or fallback
             try:
@@ -73,10 +74,11 @@ class HikiVisionConnection:
                     new_event = UserEvents(
                         user_id=user.id,
                         camera_id=self.camera_id,
-                        enter_time=event_time
+                        enter_time=event_time,
+                        enter_image_path=image_path
                     )
                     session.add(new_event)
-                    logger.info(f"Saved ENTER Event: User {user.username} at camera {self.camera_id} at {event_time}")
+                    logger.info(f"Saved ENTER Event: User {user.username} at camera {self.camera_id} at {event_time} with image {image_path}")
 
                 elif self.direction == "exit":
                     user.in_work = False
@@ -93,17 +95,19 @@ class HikiVisionConnection:
                     
                     if open_event:
                         open_event.exit_time = event_time
-                        logger.info(f"Updated EXIT Event: User {user.username} at camera {self.camera_id} at {event_time}")
+                        open_event.exit_image_path = image_path
+                        logger.info(f"Updated EXIT Event: User {user.username} at camera {self.camera_id} at {event_time} with image {image_path}")
                     else:
                         # Fallback if there was no enter event found
                         new_event = UserEvents(
                             user_id=user.id,
                             camera_id=self.camera_id,
                             enter_time=event_time,  # Fallback
-                            exit_time=event_time
+                            exit_time=event_time,
+                            exit_image_path=image_path
                         )
                         session.add(new_event)
-                        logger.warning(f"Saved EXIT Event (No prior enter): User {user.username} at {event_time}")
+                        logger.warning(f"Saved EXIT Event (No prior enter): User {user.username} at {event_time} with image {image_path}")
 
                 await session.commit()
                 return # We only need one session execution
@@ -111,16 +115,16 @@ class HikiVisionConnection:
             logger.error(f"Failed to save event to DB: {e}")
             logger.error(traceback.format_exc())
 
-    def save_image(self, image_bytes: bytes) -> str:
-        """Save image to uploads/images directory with timestamp."""
-        directory = "uploads/images"
+    def save_image(self, image_bytes: bytes, direction: str) -> str:
+        """Save image to uploads/{direction} directory with timestamp."""
+        directory = f"uploads/{direction}"
         os.makedirs(directory, exist_ok=True)
         filename = f"{directory}/{datetime.now():%Y%m%d_%H%M%S_%f}.jpg"
         
         with open(filename, "wb") as f:
             f.write(image_bytes)
 
-        logger.info(f"[📷] Image saved: {filename}")
+        logger.info(f"[📷] Image saved to {direction}: {filename}")
         return filename
 
     async def process_part(self, part: bytes):
@@ -139,16 +143,24 @@ class HikiVisionConnection:
                 dt = json_data.get("dateTime")
 
                 if event_type == "AccessControllerEvent":
-                    name = json_data.get("AccessControllerEvent", {}).get("employeeNoString")
-                    person = name if name else "unknown"
+                    data = json_data.get("AccessControllerEvent", {})
+                    employee_no = data.get("employeeNoString")
                     
-                    if person != "unknown":
-                        await self.publish_event(person, dt)
+                    if employee_no:
+                        logger.info(f"Received Access Event: Employee {employee_no} at {dt}")
+                        await self.publish_event(employee_no, dt, image_path=self.current_image_path)
+                        # Reset image path after associating it with the event
+                        self.current_image_path = None
+                    else:
+                        logger.warning(f"Access event received but missing employeeNoString: {json_data}")
+                else:
+                    logger.debug(f"Received non-access event type '{event_type}': {json_data}")
 
             except Exception as e:
                 logger.error(f"Failed to parse JSON stream: {e}")
+                logger.info(f"Raw content that failed to parse: {content}")
         elif "image/jpeg" in headers_raw:
-            self.save_image(content)
+            self.current_image_path = self.save_image(content, self.direction)
         else:
             logger.warning("Unknown content type in part")
 
@@ -192,5 +204,26 @@ class CameraStreamManager:
         logger.info(f"Restarting stream for camera {camera_id}...")
         self.stop_stream(camera_id)
         self.start_stream(camera_id, device_ip, username, password, direction)
+
+    async def start_active_cameras(self):
+        """Fetch all active cameras from DB and start their streams."""
+        from app.modules.camera.repository import CameraRepository
+        from app.models.cameras.model import Cameras
+        
+        async for session in db_helper.session_getter():
+            repo = CameraRepository(session)
+            stmt = select(Cameras).where(Cameras.is_active == True)
+            result = await session.execute(stmt)
+            cameras = result.scalars().all()
+            
+            for camera in cameras:
+                self.start_stream(
+                    camera_id=camera.id,
+                    device_ip=camera.device_ip,
+                    username=camera.username,
+                    password=camera.password,
+                    direction=camera.direction.value
+                )
+            break
 
 camera_manager = CameraStreamManager()

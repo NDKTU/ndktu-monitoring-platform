@@ -10,6 +10,10 @@ from app.modules.camera.tasks import close_open_events_at_midnight
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Start active camera streams
+    from app.modules.camera.stream import camera_manager
+    await camera_manager.start_active_cameras()
+    
     scheduler = AsyncIOScheduler()
     scheduler.add_job(close_open_events_at_midnight, 'cron', hour=0, minute=0)
     scheduler.start()

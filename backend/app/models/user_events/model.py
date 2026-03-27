@@ -20,6 +20,8 @@ class UserEvents(Base, IdIntPk):
     camera_id: Mapped[int] = mapped_column(ForeignKey("cameras.id"))
     enter_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     exit_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    enter_image_path: Mapped[str | None] = mapped_column(nullable=True)
+    exit_image_path: Mapped[str | None] = mapped_column(nullable=True)
     
     user: Mapped["User"] = relationship("User", back_populates="events")
     camera: Mapped["Cameras"] = relationship("Cameras", back_populates="events")

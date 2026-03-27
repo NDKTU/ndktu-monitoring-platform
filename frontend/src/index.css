@@ -10,6 +10,18 @@
   --danger: #ef4444;
   --glass: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(255, 255, 255, 0.08);
+  --modal-bg: #0f172a;
+}
+
+.light {
+  --bg-dark: #f1f5f9;
+  --bg-card: rgba(255, 255, 255, 0.8);
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --border: rgba(0, 0, 0, 0.05);
+  --glass: rgba(0, 0, 0, 0.02);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --modal-bg: #ffffff;
 }
 
 * {
@@ -233,10 +245,10 @@ tr.clickable:hover {
 .form-input {
   width: 100%;
   padding: 0.75rem 1rem;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--glass);
   border: 1px solid var(--border);
   border-radius: 0.5rem;
-  color: white;
+  color: var(--text-main);
   transition: border-color 0.2s ease;
 }
 
@@ -262,13 +274,14 @@ tr.clickable:hover {
 }
 
 .modal-content {
-  background: var(--bg-dark);
+  background: var(--modal-bg);
   border: 1px solid var(--glass-border);
-  border-radius: 1rem;
+  border-radius: 1.25rem;
   width: 100%;
   max-width: 500px;
   padding: 2rem;
   position: relative;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 
 .modal-header {
@@ -298,3 +311,33 @@ tr.clickable:hover {
 
 .badge-success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
 .badge-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+/* Confirm Modal Specific */
+.confirm-modal-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+}
+
+.confirm-modal-icon.danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+.confirm-modal-title {
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.confirm-modal-message {
+  text-align: center;
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+  line-height: 1.5;
+}

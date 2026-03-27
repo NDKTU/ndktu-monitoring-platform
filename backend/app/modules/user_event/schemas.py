@@ -13,6 +13,8 @@ class UserEventResponse(BaseModel):
     camera_id: int
     enter_time: datetime
     exit_time: datetime | None
+    enter_image_path: str | None
+    exit_image_path: str | None
 
 
 class UserEventListRequest(BaseModel):

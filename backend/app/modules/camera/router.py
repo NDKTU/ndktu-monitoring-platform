@@ -33,9 +33,9 @@ async def create_camera(
     return await service.create_camera(camera)
 
 
-@router.post("/list", response_model=CameraListResponse)
+@router.get("/list", response_model=CameraListResponse)
 async def list_cameras(
-    request: CameraListRequest,
+    request: CameraListRequest = Depends(),
     service: CameraService = Depends(get_camera_service)
 ):
     return await service.list_cameras(request)

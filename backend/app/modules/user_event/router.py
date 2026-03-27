@@ -22,9 +22,9 @@ def get_user_event_service(
     return UserEventService(repository)
 
 
-@router.post("/list", response_model=UserEventListResponse)
+@router.get("/list", response_model=UserEventListResponse)
 async def list_events(
-    request: UserEventListRequest,
+    request: UserEventListRequest = Depends(),
     service: UserEventService = Depends(get_user_event_service)
 ):
     return await service.list_events(request)

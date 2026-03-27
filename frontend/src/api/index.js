@@ -8,7 +8,7 @@ const api = axios.create({
 });
 
 export const cameraApi = {
-  list: (params) => api.post('/cameras/list', params || {}),
+  list: (params) => api.get('/cameras/list', { params: params || {} }),
   get: (id) => api.get(`/cameras/${id}`),
   create: (data) => api.post('/cameras/', data),
   delete: (id) => api.delete(`/cameras/${id}`),

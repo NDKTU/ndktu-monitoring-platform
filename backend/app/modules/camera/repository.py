@@ -59,7 +59,8 @@ class CameraRepository:
         )
 
     async def get_camera(self, camera_id: int) -> Cameras | None:
-        return await self.session.execute(select(Cameras).where(Cameras.id == camera_id)).scalar()
+        result = await self.session.execute(select(Cameras).where(Cameras.id == camera_id))
+        return result.scalar()
 
     async def update_camera(self, camera_id: int, camera: CameraUpdateRequest) -> Cameras | None:
         db_camera = await self.get_camera(camera_id)

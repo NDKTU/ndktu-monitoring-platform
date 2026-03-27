@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { cameraApi, userEventApi } from '../api';
 import { Plus, Trash2, Camera, ExternalLink, RefreshCw, Power, PowerOff, Activity } from 'lucide-react';
 import Modal from '../components/Modal';
+import ConfirmModal from '../components/ConfirmModal';
 
 const Cameras = () => {
   const [cameras, setCameras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [cameraToDelete, setCameraToDelete] = useState(null);
   const [selectedCamera, setSelectedCamera] = useState(null);
   const [cameraEvents, setCameraEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(false);
@@ -66,16 +69,20 @@ const Cameras = () => {
     }
   };
 
-  const handleDelete = async (id, e) => {
-    e.stopPropagation();
-    if (window.confirm('Delete this camera?')) {
-      try {
-        await cameraApi.delete(id);
-        fetchCameras();
-      } catch (err) {
-        alert('Error deleting camera');
-      }
+  const handleDelete = async () => {
+    if (!cameraToDelete) return;
+    try {
+      await cameraApi.delete(cameraToDelete);
+      fetchCameras();
+    } catch (err) {
+      alert('Error deleting camera');
     }
+  };
+
+  const openConfirm = (id, e) => {
+    e.stopPropagation();
+    setCameraToDelete(id);
+    setIsConfirmOpen(true);
   };
 
   const handleToggleConnect = async (camera, e) => {
@@ -144,7 +151,7 @@ const Cameras = () => {
                       <button className="btn btn-ghost" onClick={(e) => handleToggleConnect(camera, e)} title={camera.is_active ? 'Disconnect' : 'Connect'}>
                         {camera.is_active ? <PowerOff size={18} /> : <Power size={18} />}
                       </button>
-                      <button className="btn btn-danger" onClick={(e) => handleDelete(camera.id, e)}>
+                      <button className="btn btn-danger" onClick={(e) => openConfirm(camera.id, e)}>
                         <Trash2 size={18} />
                       </button>
                     </div>
@@ -277,6 +284,15 @@ const Cameras = () => {
           </div>
         )}
       </Modal>
+
+      <ConfirmModal 
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete Camera"
+        message="Are you sure you want to delete this camera? This will stop all monitoring for this device."
+        confirmText="Delete Camera"
+      />
     </div>
   );
 };

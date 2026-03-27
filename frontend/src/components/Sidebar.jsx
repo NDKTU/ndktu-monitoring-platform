@@ -1,8 +1,10 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Camera, Users, LayoutDashboard, Settings } from 'lucide-react';
+import { Camera, Users, LayoutDashboard, Settings, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 const Sidebar = () => {
+  const { isDarkMode, toggleTheme } = useTheme();
   const links = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/cameras', icon: Camera, label: 'Cameras' },
@@ -32,7 +34,15 @@ const Sidebar = () => {
           ))}
         </ul>
       </nav>
-      <div style={{ marginTop: 'auto' }}>
+      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <button 
+          className="nav-link" 
+          onClick={toggleTheme} 
+          style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+        >
+          {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+          <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+        </button>
         <div className="nav-link">
           <Settings size={20} />
           <span>Settings</span>
