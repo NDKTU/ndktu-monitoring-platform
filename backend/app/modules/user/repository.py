@@ -1,4 +1,4 @@
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.users.model import User
@@ -7,8 +7,9 @@ from app.modules.user.schemas import (
     UserUpdateRequest,
     UserListRequest,
     UserListResponse,
-    UserResponse
+    UserResponse,
 )
+
 
 class UserRepository:
     def __init__(self, session: AsyncSession) -> None:
@@ -30,8 +31,8 @@ class UserRepository:
 
         if request.is_active is not None:
             query = query.where(User.is_active == request.is_active)
-        if request.in_work is not None:
-            query = query.where(User.in_work == request.in_work)
+        if request.is_superuser is not None:
+            query = query.where(User.is_superuser == request.is_superuser)
 
         total_stmt = select(func.count()).select_from(query.subquery())
         total = await self.session.execute(total_stmt)
@@ -45,7 +46,7 @@ class UserRepository:
             users=[UserResponse.model_validate(u) for u in user_list],
             total=total_count,
             page=request.page,
-            limit=request.limit
+            limit=request.limit,
         )
 
     async def get_user(self, user_id: int) -> User | None:
@@ -56,11 +57,11 @@ class UserRepository:
         db_user = await self.get_user(user_id)
         if not db_user:
             return None
-        
+
         update_data = user.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(db_user, key, value)
-            
+
         await self.session.commit()
         await self.session.refresh(db_user)
         return db_user

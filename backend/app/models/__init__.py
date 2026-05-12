@@ -1,11 +1,18 @@
 from .base import Base
 from .users.model import User
+from .employees.model import Employee
 from .cameras.model import Cameras
-from .user_events.model import UserEvents
+from .attendance.model import Attendance
+from .work_schedules.model import WorkSchedule
+from .daily_attendance.model import DailyAttendance, AttendanceStatus
 
 __all__ = [
     "Base",
     "User",
+    "Employee",
     "Cameras",
-    "UserEvents",
+    "Attendance",
+    "WorkSchedule",
+    "DailyAttendance",
+    "AttendanceStatus",
 ]

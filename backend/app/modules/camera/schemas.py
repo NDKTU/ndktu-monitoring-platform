@@ -13,7 +13,7 @@ class CameraCreateRequest(BaseModel):
         str_strip_whitespace=True,
     )
     device_ip: str
-    username: str
+    login: str
     password: str
     direction: DirectionType
     is_active: bool | None = False
@@ -24,10 +24,11 @@ class CameraUpdateRequest(BaseModel):
         str_strip_whitespace=True,
     )
     device_ip: str | None = None
-    username: str | None = None
+    login: str | None = None
     password: str | None = None
     direction: DirectionType | None = None
     is_active: bool | None = None
+
 
 class CameraResponse(BaseModel):
     model_config = SettingsConfigDict(
@@ -36,10 +37,11 @@ class CameraResponse(BaseModel):
     )
     id: int
     device_ip: str
-    username: str
+    login: str
     password: str
     direction: DirectionType
     is_active: bool
+
 
 class CameraListRequest(BaseModel):
     model_config = SettingsConfigDict(
@@ -49,7 +51,7 @@ class CameraListRequest(BaseModel):
     limit: int = 10
     search: str | None = None
     device_ip: str | None = None
-    username: str | None = None
+    login: str | None = None
     direction: DirectionType | None = None
     is_active: bool | None = None
 

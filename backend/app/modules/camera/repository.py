@@ -7,7 +7,7 @@ from app.modules.camera.schemas import (
     CameraUpdateRequest,
     CameraListRequest,
     CameraListResponse,
-    CameraResponse
+    CameraResponse,
 )
 
 
@@ -30,14 +30,14 @@ class CameraRepository:
             query = query.where(
                 or_(
                     Cameras.device_ip.ilike(search_term),
-                    Cameras.username.ilike(search_term)
+                    Cameras.login.ilike(search_term),
                 )
             )
 
         if camera_list_request.device_ip:
             query = query.where(Cameras.device_ip == camera_list_request.device_ip)
-        if camera_list_request.username:
-            query = query.where(Cameras.username == camera_list_request.username)
+        if camera_list_request.login:
+            query = query.where(Cameras.login == camera_list_request.login)
         if camera_list_request.direction:
             query = query.where(Cameras.direction == camera_list_request.direction)
         if camera_list_request.is_active is not None:
@@ -55,7 +55,7 @@ class CameraRepository:
             cameras=[CameraResponse.model_validate(c) for c in camera_list],
             total=total_count,
             page=camera_list_request.page,
-            limit=camera_list_request.limit
+            limit=camera_list_request.limit,
         )
 
     async def get_camera(self, camera_id: int) -> Cameras | None:
@@ -66,11 +66,11 @@ class CameraRepository:
         db_camera = await self.get_camera(camera_id)
         if not db_camera:
             return None
-        
+
         update_data = camera.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(db_camera, key, value)
-            
+
         await self.session.commit()
         await self.session.refresh(db_camera)
         return db_camera
@@ -90,7 +90,7 @@ class CameraRepository:
         db_camera.is_active = True
         await self.session.commit()
         await self.session.refresh(db_camera)
-        
+
         return db_camera
 
     async def disconnect_camera(self, camera_id: int) -> Cameras | None:
@@ -100,19 +100,17 @@ class CameraRepository:
         db_camera.is_active = False
         await self.session.commit()
         await self.session.refresh(db_camera)
-        
+
         return db_camera
 
     async def restart_camera(self, camera_id: int) -> Cameras | None:
         db_camera = await self.get_camera(camera_id)
         if not db_camera:
             return None
-            
-        # Ensure it's marked as active if restarted
+
         if not db_camera.is_active:
             db_camera.is_active = True
             await self.session.commit()
             await self.session.refresh(db_camera)
-        
-        
+
         return db_camera

@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(kill %1)",
+      "Bash(pkill -f 'vite')",
+      "Bash(pkill -f vite)",
+      "Bash(npx shadcn@latest add checkbox --yes)",
+      "Bash(curl -s -o /dev/null -w \"Root %{http_code}\\\\n\" http://localhost:5173/)",
+      "Bash(curl -s -o /dev/null -w '__TRACKED_VAR__ %{http_code}\\\\n' http://localhost:5173/src/pages/__TRACKED_VAR__)",
+      "Bash(curl -s -o /dev/null -w \"AppShell %{http_code}\\\\n\" http://localhost:5173/src/components/layout/AppShell.tsx)",
+      "Bash(curl -s -o /dev/null -w \"Pagination %{http_code}\\\\n\" http://localhost:5173/src/components/shared/Pagination.tsx)",
+      "Bash(curl -s -o /dev/null -w \"usePagedList %{http_code}\\\\n\" http://localhost:5173/src/hooks/usePagedList.ts)",
+      "Bash(curl -s -o /dev/null -w \"Sidebar %{http_code}\\\\n\" http://localhost:5173/src/components/layout/Sidebar.tsx)",
+      "Bash(npx shadcn@latest add alert --yes)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app/modules/camera/stream.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(curl -s -o /dev/null -w \"StatusBadge %{http_code}\\\\n\" http://localhost:5173/src/components/shared/StatusBadge.tsx)",
+      "Bash(curl -s -o /dev/null -w \"time.ts %{http_code}\\\\n\" http://localhost:5173/src/lib/time.ts)",
+      "Bash(npx playwright *)",
+      "Read(//home/bekzod/.claude/skills/**)",
+      "Bash(curl -s -o /dev/null -w \"Frontend :5173 %{http_code}\\\\n\" http://localhost:5173/)",
+      "Bash(curl -s -o /dev/null -w \"Backend :8000 %{http_code}\\\\n\" http://localhost:8000/)",
+      "Bash(curl -s -o /dev/null -w \"Backend /docs %{http_code}\\\\n\" http://localhost:8000/docs)",
+      "Bash(curl -s http://localhost:8000/cameras/list)",
+      "Bash(curl -s http://localhost:8000/__TRACKED_VAR__)",
+      "Bash(cd /home/bekzod/Projects/Production/ndktu-monitoring-platform/frontend && ls node_modules/.bin/playwright 2>/dev/null; ls ~/.cache/ms-playwright 2>/dev/null | head -10)",
+      "Read(//home/bekzod/.cache/**)",
+      "Bash(google-chrome --version)",
+      "Bash(mkdir -p /tmp/ui-audit)",
+      "Read(//tmp/**)",
+      "Bash(npm init *)",
+      "Bash(npm i *)",
+      "Bash(node audit.mjs)",
+      "Bash(node -e ' *)",
+      "Bash(node interact.mjs)",
+      "Bash(grep -n \"DailySection employeeId\\\\|</div>$\\\\|^      \\)}\\\\|^    </>\" src/pages/EmployeeDetail.tsx)",
+      "Bash(node -e \"const r=require\\('./report.json'\\); console.log\\('Total:',r.length,'Errors:',r.filter\\(x=>x.consoleErrors.length||x.networkErrors.length\\).length\\);\")",
+      "Bash(node -e \"const r=require\\('./report.json'\\); console.log\\(JSON.stringify\\(r[0].consoleErrors.concat\\(r[0].networkErrors\\),null,2\\)\\);\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5173/)",
+      "Bash(node wide.mjs)"
+    ],
+    "additionalDirectories": [
+      "/tmp/ui-audit"
+    ]
+  }
+}

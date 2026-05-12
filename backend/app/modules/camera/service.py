@@ -1,4 +1,5 @@
 from fastapi import HTTPException, status
+
 from app.models.cameras.model import Cameras
 from app.modules.camera.repository import CameraRepository
 from app.modules.camera.schemas import (
@@ -6,7 +7,6 @@ from app.modules.camera.schemas import (
     CameraUpdateRequest,
     CameraListRequest,
     CameraListResponse,
-    CameraResponse
 )
 from app.modules.camera.stream import camera_manager
 
@@ -43,14 +43,13 @@ class CameraService:
         db_camera = await self.repository.connect_camera(camera_id)
         if not db_camera:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
-            
-        # Start the background stream
+
         camera_manager.start_stream(
             camera_id=db_camera.id,
             device_ip=db_camera.device_ip,
-            username=db_camera.username,
+            login=db_camera.login,
             password=db_camera.password,
-            direction=db_camera.direction.value
+            direction=db_camera.direction.value,
         )
         return db_camera
 
@@ -58,8 +57,7 @@ class CameraService:
         db_camera = await self.repository.disconnect_camera(camera_id)
         if not db_camera:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
-            
-        # Stop background stream
+
         camera_manager.stop_stream(camera_id=db_camera.id)
         return db_camera
 
@@ -67,13 +65,12 @@ class CameraService:
         db_camera = await self.repository.restart_camera(camera_id)
         if not db_camera:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
-            
-        # Restart background stream
+
         camera_manager.restart_stream(
             camera_id=db_camera.id,
             device_ip=db_camera.device_ip,
-            username=db_camera.username,
+            login=db_camera.login,
             password=db_camera.password,
-            direction=db_camera.direction.value
+            direction=db_camera.direction.value,
         )
         return db_camera
