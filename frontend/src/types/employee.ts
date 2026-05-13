@@ -7,6 +7,7 @@ export type Employee = {
   jshir: string
   in_work: boolean
   image_path?: string | null
+  work_schedule_id?: number | null
   full_name: string
 }
 

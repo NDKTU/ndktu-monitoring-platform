@@ -1,16 +1,14 @@
 import {
   ArrowLeft,
-  Calendar,
-  CalendarCheck,
   Camera as CameraIcon,
-  Clock,
+  ChevronDown,
+  ChevronRight,
   ContactRound,
-  ImageOff,
   Pencil,
   Plus,
   Trash2,
 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
@@ -39,7 +37,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -51,7 +48,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { formatTimeOnly, parseTimeInput } from '@/lib/time'
+import { formatTimeOnly } from '@/lib/time'
 import { attendanceService } from '@/services/attendance'
 import { dailyAttendanceService } from '@/services/dailyAttendance'
 import { employeesService } from '@/services/employees'
@@ -69,29 +66,11 @@ function buildImageUrl(path?: string | null) {
   return `${base.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
 }
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString(LOCALE, {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  })
-}
-
 function formatShortDate(value: string) {
   return new Date(value).toLocaleDateString(LOCALE, {
     day: '2-digit',
     month: 'long',
     year: 'numeric',
-  })
-}
-
-function formatTime(value?: string | null) {
-  if (!value) return '—'
-  return new Date(value).toLocaleTimeString(LOCALE, {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
   })
 }
 
@@ -113,13 +92,6 @@ export default function EmployeeDetailPage() {
   const [employeeLoading, setEmployeeLoading] = useState(true)
   const [employeeError, setEmployeeError] = useState<Error | null>(null)
 
-  const [events, setEvents] = useState<Attendance[]>([])
-  const [eventsTotal, setEventsTotal] = useState(0)
-  const [eventsLoading, setEventsLoading] = useState(true)
-  const [eventsError, setEventsError] = useState<Error | null>(null)
-  const [page, setPage] = useState(1)
-  const limit = 20
-
   useEffect(() => {
     if (!Number.isFinite(employeeId)) return
     let cancelled = false
@@ -139,50 +111,6 @@ export default function EmployeeDetailPage() {
       cancelled = true
     }
   }, [employeeId])
-
-  useEffect(() => {
-    if (!Number.isFinite(employeeId)) return
-    let cancelled = false
-    setEventsLoading(true)
-    attendanceService
-      .list({ employee_id: employeeId, page, limit })
-      .then((data) => {
-        if (cancelled) return
-        setEvents(data.events)
-        setEventsTotal(data.total)
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setEventsError(err)
-      })
-      .finally(() => {
-        if (!cancelled) setEventsLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [employeeId, page])
-
-  const groupedEvents = useMemo(() => {
-    const groups = new Map<string, Attendance[]>()
-    for (const event of events) {
-      const key = new Date(event.enter_time).toISOString().slice(0, 10)
-      const list = groups.get(key) ?? []
-      list.push(event)
-      groups.set(key, list)
-    }
-    return Array.from(groups.entries())
-      .map(([date, list]) => ({
-        date,
-        events: list.sort(
-          (a, b) =>
-            new Date(b.enter_time).getTime() -
-            new Date(a.enter_time).getTime(),
-        ),
-      }))
-      .sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-      )
-  }, [events])
 
   return (
     <>
@@ -268,10 +196,6 @@ export default function EmployeeDetailPage() {
                   {employee.passport_series || '—'}
                 </span>
               </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Voqealar</span>
-                <span className="font-medium tabular-nums">{eventsTotal}</span>
-              </div>
             </CardContent>
             <Separator />
             <CardContent className="pt-4">
@@ -279,153 +203,24 @@ export default function EmployeeDetailPage() {
             </CardContent>
           </Card>
 
-          <div className="space-y-8">
-            <section className="space-y-5">
-              <div className="flex items-center gap-2">
-                <Calendar
-                  className="size-4 text-muted-foreground"
-                  aria-hidden
-                />
-                <h2 className="text-lg font-semibold">Davomat tarixi</h2>
-              </div>
-
-              {eventsError ? (
-                <ErrorState onRetry={() => setPage((p) => p)} />
-              ) : eventsLoading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-24 w-full" />
-                  ))}
-                </div>
-              ) : groupedEvents.length === 0 ? (
-                <EmptyState
-                  title="Voqealar yo‘q"
-                  description="Hozircha bu xodim uchun yozuvlar mavjud emas."
-                />
-              ) : (
-                <>
-                  <div className="space-y-5">
-                    {groupedEvents.map(({ date, events: dayEvents }) => (
-                      <section key={date} className="space-y-3">
-                        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {formatDate(date)}
-                        </h3>
-                        <div className="space-y-2">
-                          {dayEvents.map((event) => (
-                            <Card key={event.id}>
-                              <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_1fr_auto]">
-                                <AttendanceSlot
-                                  kind="enter"
-                                  time={event.enter_time}
-                                  imageUrl={buildImageUrl(event.enter_image_path)}
-                                />
-                                <AttendanceSlot
-                                  kind="exit"
-                                  time={event.exit_time}
-                                  imageUrl={buildImageUrl(event.exit_image_path)}
-                                />
-                                <div className="flex flex-col gap-1 self-start text-sm text-muted-foreground sm:items-end sm:self-center">
-                                  <div className="flex items-center gap-2">
-                                    <CameraIcon className="size-4" aria-hidden />
-                                    <span>Kamera #{event.camera_id}</span>
-                                  </div>
-                                  {event.working_hours != null ? (
-                                    <span className="tabular-nums text-xs">
-                                      {event.working_hours.toFixed(2)} soat
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      </section>
-                    ))}
-                  </div>
-
-                  <Pagination
-                    page={page}
-                    limit={limit}
-                    total={eventsTotal}
-                    onPageChange={setPage}
-                  />
-                </>
-              )}
-            </section>
-
-            <section className="space-y-5">
-              <div className="flex items-center gap-2">
-                <CalendarCheck
-                  className="size-4 text-muted-foreground"
-                  aria-hidden
-                />
-                <h2 className="text-lg font-semibold">Kunlik davomat</h2>
-              </div>
-              <DailySection employeeId={employee.id} />
-            </section>
+          <AttendanceSection employeeId={employee.id} />
           </div>
-        </div>
         </>
       )}
     </>
   )
 }
 
-function AttendanceSlot({
-  kind,
-  time,
-  imageUrl,
-}: {
-  kind: 'enter' | 'exit'
-  time?: string | null
-  imageUrl: string | null
-}) {
-  const label = kind === 'enter' ? 'Kirish' : 'Chiqish'
-  const iconColor =
-    kind === 'enter' ? 'text-emerald-500' : 'text-destructive'
-
-  return (
-    <div className="flex items-center gap-3">
-      <div className="grid size-12 place-items-center overflow-hidden rounded-md bg-muted text-muted-foreground">
-        {imageUrl ? (
-          <img src={imageUrl} alt="" className="size-full object-cover" />
-        ) : (
-          <ImageOff className="size-5" aria-hidden />
-        )}
-      </div>
-      <div>
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Clock className={`size-3 ${iconColor}`} aria-hidden />
-          {label}
-        </div>
-        <div className="text-sm font-medium tabular-nums">
-          {formatTime(time)}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-type ScheduleFormState = {
-  start_time: string
-  end_time: string
-  grace_minutes: number
-}
-
-const EMPTY_SCHEDULE_FORM: ScheduleFormState = {
-  start_time: '09:00',
-  end_time: '18:00',
-  grace_minutes: 0,
-}
-
 function ScheduleSection({ employeeId }: { employeeId: number }) {
+  const navigate = useNavigate()
   const [schedule, setSchedule] = useState<WorkSchedule | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [form, setForm] = useState<ScheduleFormState>(EMPTY_SCHEDULE_FORM)
+  const [assignOpen, setAssignOpen] = useState(false)
+  const [confirmUnassign, setConfirmUnassign] = useState(false)
+  const [availableSchedules, setAvailableSchedules] = useState<WorkSchedule[]>([])
+  const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
@@ -433,8 +228,13 @@ function ScheduleSection({ employeeId }: { employeeId: number }) {
     try {
       setLoading(true)
       setError(null)
-      const res = await workSchedulesService.list({ employee_id: employeeId, limit: 1 })
-      setSchedule(res.schedules[0] ?? null)
+      const employee = await employeesService.get(employeeId)
+      if (employee.work_schedule_id) {
+        const ws = await workSchedulesService.get(employee.work_schedule_id)
+        setSchedule(ws)
+      } else {
+        setSchedule(null)
+      }
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed'))
     } finally {
@@ -446,55 +246,49 @@ function ScheduleSection({ employeeId }: { employeeId: number }) {
     fetchSchedule()
   }, [fetchSchedule])
 
-  const openCreate = () => {
-    setForm(EMPTY_SCHEDULE_FORM)
+  const openAssign = async () => {
+    setSelectedScheduleId(null)
     setFormError(null)
-    setDialogOpen(true)
+    try {
+      const res = await workSchedulesService.list({ limit: 100 })
+      setAvailableSchedules(res.schedules)
+      setAssignOpen(true)
+    } catch {
+      setFormError("Jadvallar ro'yxatini yuklab bo'lmadi.")
+    }
   }
 
-  const openEdit = () => {
-    if (!schedule) return
-    setForm({
-      start_time: schedule.start_time.slice(0, 5),
-      end_time: schedule.end_time.slice(0, 5),
-      grace_minutes: schedule.grace_minutes,
-    })
-    setFormError(null)
-    setDialogOpen(true)
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!selectedScheduleId) {
+      setFormError('Jadvalni tanlang.')
+      return
+    }
     try {
       setSubmitting(true)
       setFormError(null)
-      const payload = {
-        start_time: parseTimeInput(form.start_time),
-        end_time: parseTimeInput(form.end_time),
-        grace_minutes: form.grace_minutes,
-      }
-      if (schedule) {
-        await workSchedulesService.update(schedule.id, payload)
-      } else {
-        await workSchedulesService.create({ employee_id: employeeId, ...payload })
-      }
-      setDialogOpen(false)
+      await workSchedulesService.assignEmployees(selectedScheduleId, {
+        employee_ids: [employeeId],
+      })
+      setAssignOpen(false)
       await fetchSchedule()
     } catch {
-      setFormError("Jadvalni saqlab bo'lmadi.")
+      setFormError("Jadvalni tayinlab bo'lmadi.")
     } finally {
       setSubmitting(false)
     }
   }
 
-  const handleDelete = async () => {
+  const handleUnassign = async () => {
     if (!schedule) return
     try {
-      await workSchedulesService.remove(schedule.id)
-      setConfirmDelete(false)
+      await workSchedulesService.unassignEmployees(schedule.id, {
+        employee_ids: [employeeId],
+      })
+      setConfirmUnassign(false)
       await fetchSchedule()
     } catch (err) {
-      console.error('Failed to delete schedule', err)
+      console.error('Failed to unassign schedule', err)
     }
   }
 
@@ -511,8 +305,8 @@ function ScheduleSection({ employeeId }: { employeeId: number }) {
                 variant="ghost"
                 size="icon"
                 className="size-7"
-                aria-label="Tahrirlash"
-                onClick={openEdit}
+                aria-label="Jadvalga o'tish"
+                onClick={() => navigate(`/work-schedules/${schedule.id}`)}
               >
                 <Pencil className="size-3.5" aria-hidden />
               </Button>
@@ -520,8 +314,8 @@ function ScheduleSection({ employeeId }: { employeeId: number }) {
                 variant="ghost"
                 size="icon"
                 className="size-7 text-destructive hover:text-destructive"
-                aria-label="O‘chirish"
-                onClick={() => setConfirmDelete(true)}
+                aria-label="Ajratish"
+                onClick={() => setConfirmUnassign(true)}
               >
                 <Trash2 className="size-3.5" aria-hidden />
               </Button>
@@ -533,7 +327,7 @@ function ScheduleSection({ employeeId }: { employeeId: number }) {
           <Skeleton className="h-16 w-full" />
         ) : error ? (
           <p className="text-sm text-destructive">
-            Jadvalni yuklab bo‘lmadi
+            Jadvalni yuklab bo'lmadi
           </p>
         ) : schedule ? (
           <div className="space-y-2">
@@ -557,61 +351,52 @@ function ScheduleSection({ employeeId }: { employeeId: number }) {
             </div>
           </div>
         ) : (
-          <Button variant="outline" size="sm" className="w-full" onClick={openCreate}>
+          <Button variant="outline" size="sm" className="w-full" onClick={openAssign}>
             <Plus className="size-4" aria-hidden />
-            Jadval qo‘shish
+            Jadval tayinlash
           </Button>
         )}
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {schedule ? 'Jadvalni tahrirlash' : 'Ish jadvali'}
-            </DialogTitle>
+            <DialogTitle>Jadval tayinlash</DialogTitle>
             <DialogDescription>
-              Boshlanish va tugash vaqtini hamda kechikishga ruxsat daqiqalarini kiriting.
+              Mavjud jadvallardan birini tanlang. Yangi jadval yaratish uchun
+              "Ish jadvallari" sahifasiga o'ting.
             </DialogDescription>
           </DialogHeader>
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="emp-start_time">Boshlanish</Label>
-                <Input
-                  id="emp-start_time"
-                  type="time"
-                  required
-                  value={form.start_time}
-                  onChange={(e) => setForm({ ...form, start_time: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="emp-end_time">Tugash</Label>
-                <Input
-                  id="emp-end_time"
-                  type="time"
-                  required
-                  value={form.end_time}
-                  onChange={(e) => setForm({ ...form, end_time: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="emp-grace">Kechikish imkoniyati (daqiqa)</Label>
-              <Input
-                id="emp-grace"
-                type="number"
-                min={0}
-                max={120}
-                value={form.grace_minutes}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    grace_minutes: Math.max(0, Number(e.target.value) || 0),
-                  })
-                }
-              />
+          <form className="space-y-4" onSubmit={handleAssign}>
+            <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border p-2">
+              {availableSchedules.length === 0 ? (
+                <p className="py-3 text-center text-sm text-muted-foreground">
+                  Hozircha jadvallar yo'q. Avval "Ish jadvallari" sahifasida
+                  yarating.
+                </p>
+              ) : (
+                availableSchedules.map((s) => (
+                  <Label
+                    key={s.id}
+                    className="flex cursor-pointer items-center justify-between gap-2 rounded px-2 py-2 hover:bg-accent"
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="schedule"
+                        checked={selectedScheduleId === s.id}
+                        onChange={() => setSelectedScheduleId(s.id)}
+                      />
+                      <span className="font-medium tabular-nums">
+                        {formatTimeOnly(s.start_time)} – {formatTimeOnly(s.end_time)}
+                      </span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {s.grace_minutes} daq. · {s.employee_count} xodim
+                    </span>
+                  </Label>
+                ))
+              )}
             </div>
 
             {formError ? (
@@ -621,32 +406,32 @@ function ScheduleSection({ employeeId }: { employeeId: number }) {
             ) : null}
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setAssignOpen(false)}>
                 Bekor qilish
               </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? 'Saqlanmoqda…' : 'Saqlash'}
+              <Button type="submit" disabled={submitting || !selectedScheduleId}>
+                {submitting ? 'Saqlanmoqda…' : 'Tayinlash'}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+      <AlertDialog open={confirmUnassign} onOpenChange={setConfirmUnassign}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Jadvalni o‘chirish?</AlertDialogTitle>
+            <AlertDialogTitle>Jadvaldan ajratilsinmi?</AlertDialogTitle>
             <AlertDialogDescription>
-              Ish jadvali o‘chiriladi. Davom etamizmi?
+              Xodim ushbu ish jadvalidan ajratiladi. Jadval shabloni o'chmaydi.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Bekor qilish</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
+              onClick={handleUnassign}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              O‘chirish
+              Ajratish
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -655,87 +440,276 @@ function ScheduleSection({ employeeId }: { employeeId: number }) {
   )
 }
 
-function DailySection({ employeeId }: { employeeId: number }) {
-  const [items, setItems] = useState<DailyAttendance[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
+const DAILY_LIMIT = 20
 
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    dailyAttendanceService
-      .list({ employee_id: employeeId, limit: 30, page: 1 })
-      .then((res) => {
-        if (!cancelled) setItems(res.items)
+function localDateKey(value: string) {
+  const d = new Date(value)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function AttendanceSection({ employeeId }: { employeeId: number }) {
+  const [days, setDays] = useState<DailyAttendance[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [daysLoading, setDaysLoading] = useState(true)
+  const [daysError, setDaysError] = useState<Error | null>(null)
+
+  const [events, setEvents] = useState<Attendance[]>([])
+  const [eventsLoading, setEventsLoading] = useState(true)
+
+  const [expandedDate, setExpandedDate] = useState<string | null>(null)
+
+  const loadDays = useCallback(async () => {
+    try {
+      setDaysLoading(true)
+      setDaysError(null)
+      const res = await dailyAttendanceService.list({
+        employee_id: employeeId,
+        limit: DAILY_LIMIT,
+        page,
       })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err)
+      setDays(res.items)
+      setTotal(res.total)
+    } catch (err) {
+      setDaysError(err instanceof Error ? err : new Error('Failed'))
+    } finally {
+      setDaysLoading(false)
+    }
+  }, [employeeId, page])
+
+  const loadEvents = useCallback(async () => {
+    try {
+      setEventsLoading(true)
+      const res = await attendanceService.list({
+        employee_id: employeeId,
+        limit: 200,
       })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
+      setEvents(res.events)
+    } catch {
+      // tolerate — segments are secondary info
+      setEvents([])
+    } finally {
+      setEventsLoading(false)
     }
   }, [employeeId])
 
-  if (error) {
-    return <ErrorState />
+  useEffect(() => {
+    loadDays()
+  }, [loadDays])
+
+  useEffect(() => {
+    loadEvents()
+  }, [loadEvents])
+
+  const eventsByDate = events.reduce<Record<string, Attendance[]>>((acc, ev) => {
+    const key = localDateKey(ev.enter_time ?? ev.exit_time ?? '')
+    if (!key) return acc
+    if (!acc[key]) acc[key] = []
+    acc[key].push(ev)
+    return acc
+  }, {})
+
+  for (const key of Object.keys(eventsByDate)) {
+    eventsByDate[key].sort(
+      (a, b) =>
+        new Date(a.enter_time ?? a.exit_time ?? 0).getTime() -
+        new Date(b.enter_time ?? b.exit_time ?? 0).getTime(),
+    )
   }
-  if (loading) {
+
+  const toggleExpand = (date: string) => {
+    setExpandedDate((prev) => (prev === date ? null : date))
+  }
+
+  if (daysError) {
+    return <ErrorState onRetry={loadDays} />
+  }
+
+  if (daysLoading && days.length === 0) {
     return (
       <div className="space-y-2">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-10 w-full" />
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full" />
         ))}
       </div>
     )
   }
-  if (items.length === 0) {
+
+  if (days.length === 0) {
     return (
       <EmptyState
-        title="Kunlik yozuvlar yo‘q"
-        description="Hozircha bu xodim uchun kunlik davomat hisoblanmagan."
+        title="Davomat yo'q"
+        description="Hozircha bu xodim uchun yozuvlar mavjud emas."
       />
     )
   }
 
   return (
-    <Card className="overflow-hidden p-0">
-      <ScrollableTable>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Sana</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Kelish</TableHead>
-              <TableHead>Ketish</TableHead>
-              <TableHead className="text-right">Soat</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell className="tabular-nums">
-                  {formatShortDate(item.date)}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge status={item.status} />
-                </TableCell>
-                <TableCell className="tabular-nums">
-                  {formatTimeOnly(item.first_enter_time)}
-                </TableCell>
-                <TableCell className="tabular-nums">
-                  {formatTimeOnly(item.last_exit_time)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {item.total_working_hours.toFixed(2)}
-                </TableCell>
+    <div className="space-y-3">
+      <Card className="overflow-hidden p-0">
+        <ScrollableTable>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10"></TableHead>
+                <TableHead>Sana</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Kelish</TableHead>
+                <TableHead>Ketish</TableHead>
+                <TableHead className="text-right">Soat</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </ScrollableTable>
-    </Card>
+            </TableHeader>
+            <TableBody>
+              {days.map((item) => {
+                const isOpen = expandedDate === item.date
+                const dayEvents = eventsByDate[item.date] ?? []
+                return (
+                  <DayRows
+                    key={item.id}
+                    item={item}
+                    isOpen={isOpen}
+                    dayEvents={dayEvents}
+                    eventsLoading={eventsLoading}
+                    onToggle={() => toggleExpand(item.date)}
+                  />
+                )
+              })}
+            </TableBody>
+          </Table>
+        </ScrollableTable>
+        <Pagination
+          page={page}
+          limit={DAILY_LIMIT}
+          total={total}
+          onPageChange={setPage}
+        />
+      </Card>
+    </div>
+  )
+}
+
+function DayRows({
+  item,
+  isOpen,
+  dayEvents,
+  eventsLoading,
+  onToggle,
+}: {
+  item: DailyAttendance
+  isOpen: boolean
+  dayEvents: Attendance[]
+  eventsLoading: boolean
+  onToggle: () => void
+}) {
+  const hasAnyImage = dayEvents.some(
+    (e) => e.enter_image_path || e.exit_image_path,
+  )
+
+  return (
+    <>
+      <TableRow className="cursor-pointer" onClick={onToggle}>
+        <TableCell>
+          {isOpen ? (
+            <ChevronDown className="size-4 text-muted-foreground" aria-hidden />
+          ) : (
+            <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+          )}
+        </TableCell>
+        <TableCell className="tabular-nums">
+          {formatShortDate(item.date)}
+        </TableCell>
+        <TableCell>
+          <StatusBadge status={item.status} />
+        </TableCell>
+        <TableCell className="tabular-nums">
+          {formatTimeOnly(item.first_enter_time)}
+        </TableCell>
+        <TableCell className="tabular-nums">
+          {formatTimeOnly(item.last_exit_time)}
+        </TableCell>
+        <TableCell className="text-right tabular-nums">
+          {item.total_working_hours.toFixed(2)}
+        </TableCell>
+      </TableRow>
+      {isOpen ? (
+        <TableRow className="bg-muted/30 hover:bg-muted/30">
+          <TableCell colSpan={6} className="p-0">
+            <div className="px-4 py-3">
+              {eventsLoading ? (
+                <Skeleton className="h-16 w-full" />
+              ) : dayEvents.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Ushbu kun uchun batafsil yozuvlar mavjud emas.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="h-9">Kirish</TableHead>
+                      <TableHead className="h-9">Chiqish</TableHead>
+                      <TableHead className="h-9">Kamera</TableHead>
+                      <TableHead className="h-9 text-right">Soat</TableHead>
+                      {hasAnyImage ? (
+                        <TableHead className="h-9 text-right">Foto</TableHead>
+                      ) : null}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {dayEvents.map((ev) => {
+                      const enterUrl = buildImageUrl(ev.enter_image_path)
+                      const exitUrl = buildImageUrl(ev.exit_image_path)
+                      return (
+                        <TableRow key={ev.id}>
+                          <TableCell className="tabular-nums">
+                            {formatTimeOnly(ev.enter_time)}
+                          </TableCell>
+                          <TableCell className="tabular-nums">
+                            {formatTimeOnly(ev.exit_time ?? null)}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            <span className="inline-flex items-center gap-1.5">
+                              <CameraIcon className="size-3.5" aria-hidden />
+                              #{ev.camera_id}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {ev.working_hours != null
+                              ? ev.working_hours.toFixed(2)
+                              : '—'}
+                          </TableCell>
+                          {hasAnyImage ? (
+                            <TableCell className="text-right">
+                              <div className="inline-flex items-center justify-end gap-1.5">
+                                {enterUrl ? (
+                                  <img
+                                    src={enterUrl}
+                                    alt=""
+                                    className="size-9 rounded-md object-cover"
+                                  />
+                                ) : null}
+                                {exitUrl ? (
+                                  <img
+                                    src={exitUrl}
+                                    alt=""
+                                    className="size-9 rounded-md object-cover"
+                                  />
+                                ) : null}
+                              </div>
+                            </TableCell>
+                          ) : null}
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </TableCell>
+        </TableRow>
+      ) : null}
+    </>
   )
 }

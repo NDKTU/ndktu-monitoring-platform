@@ -2,7 +2,7 @@ from app.models.base import Base
 from app.models.mixins import IdIntPk, TimestampMixin
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Boolean
+from sqlalchemy import String, Boolean, ForeignKey, Integer
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -22,12 +22,15 @@ class Employee(Base, IdIntPk, TimestampMixin):
     jshir: Mapped[str] = mapped_column(String(14), unique=True, nullable=False)
     in_work: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     image_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    work_schedule_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("work_schedules.id", ondelete="SET NULL"), nullable=True
+    )
 
     attendances: Mapped[list["Attendance"]] = relationship(
         "Attendance", back_populates="employee"
     )
     work_schedule: Mapped["WorkSchedule | None"] = relationship(
-        "WorkSchedule", back_populates="employee", uselist=False
+        "WorkSchedule", back_populates="employees"
     )
     daily_attendances: Mapped[list["DailyAttendance"]] = relationship(
         "DailyAttendance", back_populates="employee"

@@ -7,6 +7,7 @@ import EmployeeDetailPage from '@/pages/EmployeeDetail'
 import EmployeesPage from '@/pages/Employees'
 import UsersPage from '@/pages/Users'
 import WorkSchedulesPage from '@/pages/WorkSchedules'
+import WorkScheduleDetailPage from '@/pages/WorkScheduleDetail'
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="employees/:id" element={<EmployeeDetailPage />} />
         <Route path="daily-attendance" element={<DailyAttendancePage />} />
         <Route path="work-schedules" element={<WorkSchedulesPage />} />
+        <Route path="work-schedules/:id" element={<WorkScheduleDetailPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

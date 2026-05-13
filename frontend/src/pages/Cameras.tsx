@@ -1,13 +1,17 @@
+import axios from 'axios'
 import {
   Camera as CameraIcon,
   CircleAlert,
+  Loader2,
+  Pencil,
   Plus,
   Power,
   PowerOff,
   Search,
   Trash2,
+  X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -60,6 +64,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { usePagedList } from '@/hooks/usePagedList'
+import { isValidIPv4, trimFormStrings } from '@/lib/validation'
 import { camerasService } from '@/services/cameras'
 import type {
   Camera,
@@ -124,30 +129,87 @@ export default function CamerasPage() {
     })
   }
 
-  const [createOpen, setCreateOpen] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editing, setEditing] = useState<Camera | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [ipError, setIpError] = useState<string | null>(null)
   const [form, setForm] = useState<CameraCreateInput>(EMPTY_FORM)
   const [toDelete, setToDelete] = useState<Camera | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [toggleNotice, setToggleNotice] = useState<string | null>(null)
 
+  useEffect(() => {
+    if (!toggleNotice) return
+    const timer = window.setTimeout(() => setToggleNotice(null), 6000)
+    return () => window.clearTimeout(timer)
+  }, [toggleNotice])
+
+  const isEditing = editing !== null
+
   const resetForm = () => {
     setForm(EMPTY_FORM)
     setSubmitError(null)
+    setIpError(null)
+    setEditing(null)
   }
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const openCreate = () => {
+    resetForm()
+    setDialogOpen(true)
+  }
+
+  const openEdit = (camera: Camera) => {
+    setEditing(camera)
+    setForm({
+      device_ip: camera.device_ip,
+      login: camera.login,
+      password: '',
+      direction: camera.direction,
+      is_active: camera.is_active,
+    })
+    setSubmitError(null)
+    setIpError(null)
+    setDialogOpen(true)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const cleaned = trimFormStrings(form)
+
+    if (!isValidIPv4(cleaned.device_ip)) {
+      setIpError(
+        "IP manzil noto‘g‘ri formatda. Misol: 192.168.1.10 (faqat raqamlar, 0–255 oralig‘ida).",
+      )
+      setSubmitError(null)
+      return
+    }
+
     try {
       setSubmitting(true)
       setSubmitError(null)
-      await camerasService.create(form)
-      setCreateOpen(false)
+      setIpError(null)
+      setForm(cleaned)
+      if (editing) {
+        const { password: _omit, ...rest } = cleaned
+        void _omit
+        await camerasService.update(editing.id, rest)
+      } else {
+        await camerasService.create(cleaned)
+      }
+      setDialogOpen(false)
       resetForm()
       await refetch()
-    } catch {
-      setSubmitError("Kamerani yaratib bo'lmadi. Maydonlarni tekshirib qayta urinib ko‘ring.")
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 409) {
+        setIpError(`Bunday IP manzilli kamera allaqachon mavjud: ${cleaned.device_ip}`)
+      } else {
+        setSubmitError(
+          editing
+            ? "Kamerani yangilab bo'lmadi. Maydonlarni tekshirib qayta urinib ko‘ring."
+            : "Kamerani yaratib bo'lmadi. Maydonlarni tekshirib qayta urinib ko‘ring.",
+        )
+      }
     } finally {
       setSubmitting(false)
     }
@@ -170,35 +232,24 @@ export default function CamerasPage() {
     try {
       if (camera.is_active) {
         await camerasService.disconnect(camera.id)
-        await refetch()
-        return
+      } else {
+        await camerasService.connect(camera.id)
       }
-
-      await camerasService.connect(camera.id)
       await refetch()
-
-      // The backend starts the Hikvision stream as a background task and
-      // returns immediately. If the device is unreachable, the task fails
-      // a few seconds later and marks the camera as inactive in the DB.
-      // Re-check to surface that state to the user.
-      window.setTimeout(async () => {
-        try {
-          const fresh = await camerasService.get(camera.id)
-          await refetch()
-          if (!fresh.is_active) {
-            setToggleNotice(
-              `${camera.device_ip} ga ulanib bo'lmadi. Qurilma o'chirilgan yoki tarmoqda mavjud emas.`,
-            )
-          }
-        } catch (err) {
-          console.error('Failed to verify camera state', err)
-        }
-      }, 4000)
     } catch (err) {
-      console.error('Failed to toggle camera', err)
-      setToggleNotice(
-        `${camera.device_ip} ni ulashda xatolik yuz berdi. Qayta urinib ko'ring.`,
-      )
+      if (axios.isAxiosError(err) && err.response?.status === 503) {
+        const detail = err.response.data?.detail
+        const message =
+          typeof detail === 'object' && detail !== null && 'message' in detail
+            ? String((detail as { message: unknown }).message)
+            : `${camera.device_ip} ga ulanib bo‘lmadi.`
+        setToggleNotice(message)
+      } else {
+        console.error('Failed to toggle camera', err)
+        setToggleNotice(
+          `${camera.device_ip} ni ulashda xatolik yuz berdi. Qayta urinib ko‘ring.`,
+        )
+      }
       await refetch()
     } finally {
       setBusyId(null)
@@ -211,12 +262,7 @@ export default function CamerasPage() {
         title="Kameralar"
         description="Videokuzatuv tarmog‘ini boshqarish"
         actions={
-          <Button
-            onClick={() => {
-              resetForm()
-              setCreateOpen(true)
-            }}
-          >
+          <Button onClick={openCreate}>
             <Plus className="size-4" aria-hidden />
             Kamera qo‘shish
           </Button>
@@ -284,10 +330,20 @@ export default function CamerasPage() {
       </Card>
 
       {toggleNotice ? (
-        <Alert variant="destructive" role="status">
+        <Alert variant="destructive" role="status" className="relative pr-10">
           <CircleAlert className="size-4" aria-hidden />
           <AlertTitle>Ulanish muvaffaqiyatsiz</AlertTitle>
           <AlertDescription>{toggleNotice}</AlertDescription>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute right-1 top-1 size-7 text-destructive hover:bg-destructive/10"
+            onClick={() => setToggleNotice(null)}
+            aria-label="Yopish"
+          >
+            <X className="size-4" aria-hidden />
+          </Button>
         </Alert>
       ) : null}
 
@@ -370,7 +426,12 @@ export default function CamerasPage() {
                                   camera.is_active ? 'Uzish' : 'Ulash'
                                 }
                               >
-                                {camera.is_active ? (
+                                {busyId === camera.id ? (
+                                  <Loader2
+                                    className="size-4 animate-spin"
+                                    aria-hidden
+                                  />
+                                ) : camera.is_active ? (
                                   <PowerOff className="size-4" aria-hidden />
                                 ) : (
                                   <Power className="size-4" aria-hidden />
@@ -380,6 +441,19 @@ export default function CamerasPage() {
                             <TooltipContent>
                               {camera.is_active ? 'Uzish' : 'Ulash'}
                             </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => openEdit(camera)}
+                                aria-label="Kamerani tahrirlash"
+                              >
+                                <Pencil className="size-4" aria-hidden />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Tahrirlash</TooltipContent>
                           </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -414,32 +488,51 @@ export default function CamerasPage() {
       </Card>
 
       <Dialog
-        open={createOpen}
+        open={dialogOpen}
         onOpenChange={(next) => {
-          setCreateOpen(next)
+          setDialogOpen(next)
           if (!next) resetForm()
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Yangi kamera</DialogTitle>
+            <DialogTitle>
+              {isEditing ? 'Kamerani tahrirlash' : 'Yangi kamera'}
+            </DialogTitle>
             <DialogDescription>
-              Hikvision qurilmasining ulanish parametrlarini kiriting.
+              {isEditing
+                ? 'Kamera parametrlarini yangilang. Parolni o‘zgartirib bo‘lmaydi.'
+                : 'Hikvision qurilmasining ulanish parametrlarini kiriting.'}
             </DialogDescription>
           </DialogHeader>
-          <form className="space-y-4" onSubmit={handleCreate}>
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <Label htmlFor="device_ip">IP manzil</Label>
               <Input
                 id="device_ip"
                 required
                 value={form.device_ip}
-                onChange={(e) =>
-                  setForm({ ...form, device_ip: e.target.value })
-                }
+                onChange={(e) => {
+                  const next = e.target.value.replace(/[^0-9.]/g, '')
+                  setForm({ ...form, device_ip: next })
+                  if (ipError) setIpError(null)
+                }}
                 placeholder="192.168.1.10"
+                inputMode="decimal"
+                pattern="^(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3}$"
+                aria-invalid={ipError ? true : undefined}
+                aria-describedby={ipError ? 'device_ip-error' : undefined}
                 autoComplete="off"
               />
+              {ipError ? (
+                <p
+                  id="device_ip-error"
+                  role="alert"
+                  className="text-sm font-medium text-destructive"
+                >
+                  {ipError}
+                </p>
+              ) : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor="login">Login</Label>
@@ -454,19 +547,21 @@ export default function CamerasPage() {
                 autoComplete="off"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Parol</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                value={form.password}
-                onChange={(e) =>
-                  setForm({ ...form, password: e.target.value })
-                }
-                autoComplete="new-password"
-              />
-            </div>
+            {isEditing ? null : (
+              <div className="space-y-2">
+                <Label htmlFor="password">Parol</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={form.password}
+                  onChange={(e) =>
+                    setForm({ ...form, password: e.target.value })
+                  }
+                  autoComplete="new-password"
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="direction">Yo‘nalish</Label>
               <Select
@@ -501,12 +596,18 @@ export default function CamerasPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setCreateOpen(false)}
+                onClick={() => setDialogOpen(false)}
               >
                 Bekor qilish
               </Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? 'Yaratilmoqda…' : 'Yaratish'}
+                {submitting
+                  ? isEditing
+                    ? 'Saqlanmoqda…'
+                    : 'Yaratilmoqda…'
+                  : isEditing
+                    ? 'Saqlash'
+                    : 'Yaratish'}
               </Button>
             </DialogFooter>
           </form>

@@ -4,7 +4,6 @@ import {
   Clock,
   ContactRound,
   LayoutDashboard,
-  ShieldCheck,
   UserCog,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
@@ -36,10 +35,12 @@ type SidebarProps = {
 export function Sidebar({ onNavigate }: SidebarProps) {
   return (
     <div className="flex h-full flex-col gap-6 bg-sidebar text-sidebar-foreground">
-      <div className="flex items-center gap-2 px-5 pt-6">
-        <div className="grid size-8 place-items-center rounded-md bg-primary text-primary-foreground">
-          <ShieldCheck className="size-4" aria-hidden />
-        </div>
+      <div className="flex items-center gap-3 px-5 pt-6">
+        <img
+          src="/logo.png"
+          alt="NDKTU Monitor logosi"
+          className="size-10 shrink-0 object-contain"
+        />
         <div className="leading-tight">
           <div className="text-sm font-semibold">NDKTU</div>
           <div className="text-xs text-muted-foreground">Monitoring</div>

@@ -29,10 +29,12 @@ export const camerasService = {
     await api.delete(`/cameras/${id}`)
   },
   connect: async (id: number) => {
-    await api.post(`/cameras/${id}/connect`)
+    const { data } = await api.post<Camera>(`/cameras/${id}/connect`)
+    return data
   },
   disconnect: async (id: number) => {
-    await api.post(`/cameras/${id}/disconnect`)
+    const { data } = await api.post<Camera>(`/cameras/${id}/disconnect`)
+    return data
   },
   restart: async (id: number) => {
     await api.post(`/cameras/${id}/restart`)

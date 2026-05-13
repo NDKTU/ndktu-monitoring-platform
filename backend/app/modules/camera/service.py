@@ -8,7 +8,7 @@ from app.modules.camera.schemas import (
     CameraListRequest,
     CameraListResponse,
 )
-from app.modules.camera.stream import camera_manager
+from app.modules.camera.stream import camera_manager, probe_hikvision
 
 
 class CameraService:
@@ -40,10 +40,24 @@ class CameraService:
         return deleted
 
     async def connect_camera(self, camera_id: int) -> Cameras:
-        db_camera = await self.repository.connect_camera(camera_id)
+        db_camera = await self.repository.get_camera(camera_id)
         if not db_camera:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
 
+        error = await probe_hikvision(
+            db_camera.device_ip, db_camera.login, db_camera.password
+        )
+        if error is not None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={
+                    "code": "device_unreachable",
+                    "message": error,
+                    "device_ip": db_camera.device_ip,
+                },
+            )
+
+        db_camera = await self.repository.connect_camera(camera_id)
         camera_manager.start_stream(
             camera_id=db_camera.id,
             device_ip=db_camera.device_ip,

@@ -1,5 +1,6 @@
 import { Clock, Pencil, Plus, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -28,13 +29,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { TimeInput24 } from '@/components/ui/time-input-24'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -46,30 +40,26 @@ import {
 } from '@/components/ui/table'
 import { usePagedList } from '@/hooks/usePagedList'
 import { formatTimeOnly, parseTimeInput } from '@/lib/time'
-import { employeesService } from '@/services/employees'
 import { workSchedulesService } from '@/services/workSchedules'
-import type { Employee } from '@/types/employee'
 import type {
   WorkSchedule,
-  WorkScheduleCreateInput,
   WorkScheduleListParams,
 } from '@/types/workSchedule'
 
 type FormState = {
-  employee_id: number | null
   start_time: string
   end_time: string
   grace_minutes: number
 }
 
 const EMPTY_FORM: FormState = {
-  employee_id: null,
   start_time: '09:00',
   end_time: '18:00',
   grace_minutes: 0,
 }
 
 export default function WorkSchedulesPage() {
+  const navigate = useNavigate()
   const {
     items: schedules,
     total,
@@ -79,7 +69,6 @@ export default function WorkSchedulesPage() {
     error,
     setPage,
     setLimit,
-    setParams,
     refetch,
   } = usePagedList<WorkSchedule, WorkScheduleListParams>({
     fetcher: workSchedulesService.list,
@@ -87,35 +76,7 @@ export default function WorkSchedulesPage() {
     initialParams: { page: 1, limit: 10 },
   })
 
-  const [employees, setEmployees] = useState<Employee[]>([])
-
-  useEffect(() => {
-    let cancelled = false
-    employeesService
-      .list({ limit: 200 })
-      .then((res) => {
-        if (!cancelled) setEmployees(res.employees)
-      })
-      .catch((err) => console.error('Failed to load employees', err))
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const employeeById = (id: number) =>
-    employees.find((e) => e.id === id)
-
-  const [filterEmployee, setFilterEmployee] = useState<string>('all')
-
-  const onFilterChange = (value: string) => {
-    setFilterEmployee(value)
-    setParams((prev) => ({
-      ...prev,
-      employee_id: value === 'all' ? undefined : Number(value),
-    }))
-  }
-
-  const [createOpen, setCreateOpen] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<WorkSchedule | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [submitting, setSubmitting] = useState(false)
@@ -126,52 +87,44 @@ export default function WorkSchedulesPage() {
     setForm(EMPTY_FORM)
     setFormError(null)
     setEditing(null)
-    setCreateOpen(true)
+    setDialogOpen(true)
   }
 
   const openEdit = (schedule: WorkSchedule) => {
     setForm({
-      employee_id: schedule.employee_id,
       start_time: schedule.start_time.slice(0, 5),
       end_time: schedule.end_time.slice(0, 5),
       grace_minutes: schedule.grace_minutes,
     })
     setFormError(null)
     setEditing(schedule)
-    setCreateOpen(true)
+    setDialogOpen(true)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.employee_id) {
-      setFormError('Xodimni tanlang.')
-      return
+    const payload = {
+      start_time: parseTimeInput(form.start_time),
+      end_time: parseTimeInput(form.end_time),
+      grace_minutes: form.grace_minutes,
     }
+
     try {
       setSubmitting(true)
       setFormError(null)
-      const payload = {
-        start_time: parseTimeInput(form.start_time),
-        end_time: parseTimeInput(form.end_time),
-        grace_minutes: form.grace_minutes,
-      }
       if (editing) {
         await workSchedulesService.update(editing.id, payload)
       } else {
-        const create: WorkScheduleCreateInput = {
-          employee_id: form.employee_id,
-          ...payload,
-        }
-        await workSchedulesService.create(create)
+        await workSchedulesService.create(payload)
       }
-      setCreateOpen(false)
+      setDialogOpen(false)
       setEditing(null)
       await refetch()
     } catch {
       setFormError(
         editing
-          ? "Jadvalni yangilab bo'lmadi."
-          : "Jadval yaratilmadi. Ehtimol, bu xodim uchun jadval allaqachon mavjud.",
+          ? "Jadvalni yangilab bo'lmadi. Bunday vaqtdagi jadval allaqachon bo'lishi mumkin."
+          : "Jadval yaratilmadi. Bunday vaqtdagi jadval allaqachon bo'lishi mumkin.",
       )
     } finally {
       setSubmitting(false)
@@ -189,11 +142,17 @@ export default function WorkSchedulesPage() {
     }
   }
 
+  const goToDetail = (schedule: WorkSchedule) => {
+    navigate(`/work-schedules/${schedule.id}`)
+  }
+
+  const stop = (e: React.MouseEvent) => e.stopPropagation()
+
   return (
     <>
       <PageHeader
         title="Ish jadvallari"
-        description="Xodimlarning ish soatlari va kechikish toleranti"
+        description="Ish vaqtlari shabloni va ularga biriktirilgan xodimlar soni"
         actions={
           <Button onClick={openCreate}>
             <Plus className="size-4" aria-hidden />
@@ -201,29 +160,6 @@ export default function WorkSchedulesPage() {
           </Button>
         }
       />
-
-      <Card>
-        <Label htmlFor="schedule-employee-filter" className="sr-only">
-          Xodim bo‘yicha filtr
-        </Label>
-        <Select value={filterEmployee} onValueChange={onFilterChange}>
-          <SelectTrigger
-            id="schedule-employee-filter"
-            className="w-full sm:w-72"
-            aria-label="Xodim filtri"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Barcha xodimlar</SelectItem>
-            {employees.map((e) => (
-              <SelectItem key={e.id} value={String(e.id)}>
-                {e.full_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Card>
 
       <Card className="overflow-hidden p-0">
         {error ? (
@@ -241,7 +177,7 @@ export default function WorkSchedulesPage() {
             <EmptyState
               icon={Clock}
               title="Jadvallar topilmadi"
-              description="Yangi xodim uchun ish jadvali yarating."
+              description="Birinchi ish jadvalini yarating va keyin unga xodimlarni biriktiring."
             />
           </div>
         ) : (
@@ -250,62 +186,56 @@ export default function WorkSchedulesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Xodim</TableHead>
                     <TableHead>Boshlanish</TableHead>
                     <TableHead>Tugash</TableHead>
                     <TableHead>Imkoniyat</TableHead>
+                    <TableHead>Xodimlar soni</TableHead>
                     <TableHead className="w-24 text-right">Amallar</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {schedules.map((schedule) => {
-                    const employee = employeeById(schedule.employee_id)
-                    return (
-                      <TableRow key={schedule.id}>
-                        <TableCell>
-                          {employee ? (
-                            <span className="font-medium">
-                              {employee.full_name}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">
-                              #{schedule.employee_id}
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="tabular-nums">
-                          {formatTimeOnly(schedule.start_time)}
-                        </TableCell>
-                        <TableCell className="tabular-nums">
-                          {formatTimeOnly(schedule.end_time)}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {schedule.grace_minutes} daq.
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Tahrirlash"
-                              onClick={() => openEdit(schedule)}
-                            >
-                              <Pencil className="size-4" aria-hidden />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive hover:text-destructive"
-                              aria-label="O‘chirish"
-                              onClick={() => setToDelete(schedule)}
-                            >
-                              <Trash2 className="size-4" aria-hidden />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
+                  {schedules.map((schedule) => (
+                    <TableRow
+                      key={schedule.id}
+                      onClick={() => goToDetail(schedule)}
+                      className="cursor-pointer"
+                    >
+                      <TableCell className="tabular-nums font-medium">
+                        {formatTimeOnly(schedule.start_time)}
+                      </TableCell>
+                      <TableCell className="tabular-nums">
+                        {formatTimeOnly(schedule.end_time)}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {schedule.grace_minutes} daq.
+                      </TableCell>
+                      <TableCell>{schedule.employee_count}</TableCell>
+                      <TableCell>
+                        <div
+                          className="flex items-center justify-end gap-1"
+                          onClick={stop}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Tahrirlash"
+                            onClick={() => openEdit(schedule)}
+                          >
+                            <Pencil className="size-4" aria-hidden />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            aria-label="O'chirish"
+                            onClick={() => setToDelete(schedule)}
+                          >
+                            <Trash2 className="size-4" aria-hidden />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </ScrollableTable>
@@ -321,9 +251,9 @@ export default function WorkSchedulesPage() {
       </Card>
 
       <Dialog
-        open={createOpen}
+        open={dialogOpen}
         onOpenChange={(next) => {
-          setCreateOpen(next)
+          setDialogOpen(next)
           if (!next) setEditing(null)
         }}
       >
@@ -333,32 +263,12 @@ export default function WorkSchedulesPage() {
               {editing ? 'Jadvalni tahrirlash' : 'Yangi ish jadvali'}
             </DialogTitle>
             <DialogDescription>
-              Ish boshlanish va tugash vaqtini hamda kechikishga ruxsat
-              beriladigan daqiqalarni kiriting.
+              {editing
+                ? "Vaqtlar o'zgarishi shu jadvalga biriktirilgan barcha xodimlarga taalluqli bo'ladi."
+                : "Yangi shablon yarating. Xodimlarni keyinroq detallar sahifasida biriktirasiz."}
             </DialogDescription>
           </DialogHeader>
           <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor="schedule-employee">Xodim</Label>
-              <Select
-                value={form.employee_id ? String(form.employee_id) : ''}
-                onValueChange={(v) =>
-                  setForm({ ...form, employee_id: Number(v) })
-                }
-                disabled={!!editing}
-              >
-                <SelectTrigger id="schedule-employee">
-                  <SelectValue placeholder="Xodimni tanlang" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map((e) => (
-                    <SelectItem key={e.id} value={String(e.id)}>
-                      {e.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="start_time">Boshlanish</Label>
@@ -409,7 +319,7 @@ export default function WorkSchedulesPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setCreateOpen(false)}
+                onClick={() => setDialogOpen(false)}
               >
                 Bekor qilish
               </Button>
@@ -431,10 +341,11 @@ export default function WorkSchedulesPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Jadvalni o‘chirish?</AlertDialogTitle>
+            <AlertDialogTitle>Jadvalni o'chirish?</AlertDialogTitle>
             <AlertDialogDescription>
-              Ish jadvali o‘chirilsa, kunlik davomat statuslari hisoblanmaydi.
-              Davom etamizmi?
+              {toDelete && toDelete.employee_count > 0
+                ? `Ushbu jadvalga ${toDelete.employee_count} xodim biriktirilgan. O'chirilgandan keyin ular jadvalsiz qoladi.`
+                : "Jadval o'chiriladi. Davom etamizmi?"}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -443,7 +354,7 @@ export default function WorkSchedulesPage() {
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              O‘chirish
+              O'chirish
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

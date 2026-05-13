@@ -27,6 +27,34 @@ async def _mark_camera_inactive(camera_id: int) -> None:
         break
 
 
+async def probe_hikvision(
+    device_ip: str, login: str, password: str, timeout: float = 3.0
+) -> str | None:
+    """Quick handshake check against the Hikvision alertStream endpoint.
+
+    Returns None on success or a user-facing error message (Uzbek) on failure.
+    """
+    url = f"http://{device_ip}/ISAPI/Event/notification/alertStream?format=json"
+    auth = httpx.DigestAuth(login, password)
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            async with client.stream("GET", url, auth=auth) as response:
+                if response.status_code == 401:
+                    return "Login yoki parol noto‘g‘ri"
+                if response.status_code != 200:
+                    return f"Qurilma HTTP {response.status_code} qaytardi"
+        return None
+    except httpx.ConnectError:
+        return f"{device_ip} ga ulanib bo‘lmadi (tarmoqda mavjud emas)"
+    except httpx.ReadError:
+        return f"{device_ip} bilan aloqa uzildi"
+    except (httpx.TimeoutException, asyncio.TimeoutError):
+        return f"{device_ip} javob bermayapti (timeout)"
+    except Exception as e:
+        logger.error(f"Unexpected probe error for {device_ip}: {e}")
+        return f"Kutilmagan xatolik: {e}"
+
+
 class HikiVisionConnection:
     def __init__(self, camera_id: int, device_ip: str, login: str, password: str, direction: str):
         self.camera_id = camera_id

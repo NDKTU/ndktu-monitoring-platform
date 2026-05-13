@@ -67,7 +67,11 @@ async def _get_or_create_daily(
 
 
 async def _get_schedule(session: AsyncSession, employee_id: int) -> WorkSchedule | None:
-    stmt = select(WorkSchedule).where(WorkSchedule.employee_id == employee_id)
+    stmt = (
+        select(WorkSchedule)
+        .join(Employee, Employee.work_schedule_id == WorkSchedule.id)
+        .where(Employee.id == employee_id)
+    )
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 

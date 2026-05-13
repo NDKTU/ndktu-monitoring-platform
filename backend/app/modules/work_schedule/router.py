@@ -6,10 +6,14 @@ from app.modules.work_schedule.repository import WorkScheduleRepository
 from app.modules.work_schedule.service import WorkScheduleService
 from app.modules.work_schedule.schemas import (
     WorkScheduleCreateRequest,
-    WorkScheduleUpdateRequest,
+    WorkScheduleEmployeesListRequest,
+    WorkScheduleEmployeesListResponse,
+    WorkScheduleEmployeesRequest,
+    WorkScheduleEmployeesResult,
     WorkScheduleListRequest,
     WorkScheduleListResponse,
     WorkScheduleResponse,
+    WorkScheduleUpdateRequest,
 )
 
 router = APIRouter(
@@ -64,3 +68,36 @@ async def delete_schedule(
     service: WorkScheduleService = Depends(get_schedule_service),
 ):
     return await service.delete_schedule(schedule_id)
+
+
+@router.get(
+    "/{schedule_id}/employees", response_model=WorkScheduleEmployeesListResponse
+)
+async def list_schedule_employees(
+    schedule_id: int,
+    request: WorkScheduleEmployeesListRequest = Depends(),
+    service: WorkScheduleService = Depends(get_schedule_service),
+):
+    return await service.list_employees(schedule_id, request)
+
+
+@router.post(
+    "/{schedule_id}/employees", response_model=WorkScheduleEmployeesResult
+)
+async def assign_employees(
+    schedule_id: int,
+    payload: WorkScheduleEmployeesRequest,
+    service: WorkScheduleService = Depends(get_schedule_service),
+):
+    return await service.assign_employees(schedule_id, payload)
+
+
+@router.delete(
+    "/{schedule_id}/employees", response_model=WorkScheduleEmployeesResult
+)
+async def unassign_employees(
+    schedule_id: int,
+    payload: WorkScheduleEmployeesRequest,
+    service: WorkScheduleService = Depends(get_schedule_service),
+):
+    return await service.unassign_employees(schedule_id, payload)

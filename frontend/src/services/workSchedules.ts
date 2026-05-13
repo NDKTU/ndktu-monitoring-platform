@@ -2,6 +2,10 @@ import { api } from '@/lib/api'
 import type {
   WorkSchedule,
   WorkScheduleCreateInput,
+  WorkScheduleEmployeesInput,
+  WorkScheduleEmployeesParams,
+  WorkScheduleEmployeesResponse,
+  WorkScheduleEmployeesResult,
   WorkScheduleListParams,
   WorkScheduleListResponse,
   WorkScheduleUpdateInput,
@@ -32,5 +36,29 @@ export const workSchedulesService = {
   },
   remove: async (id: number) => {
     await api.delete(`/work-schedules/${id}`)
+  },
+  listEmployees: async (
+    id: number,
+    params?: WorkScheduleEmployeesParams,
+  ) => {
+    const { data } = await api.get<WorkScheduleEmployeesResponse>(
+      `/work-schedules/${id}/employees`,
+      { params },
+    )
+    return data
+  },
+  assignEmployees: async (id: number, input: WorkScheduleEmployeesInput) => {
+    const { data } = await api.post<WorkScheduleEmployeesResult>(
+      `/work-schedules/${id}/employees`,
+      input,
+    )
+    return data
+  },
+  unassignEmployees: async (id: number, input: WorkScheduleEmployeesInput) => {
+    const { data } = await api.delete<WorkScheduleEmployeesResult>(
+      `/work-schedules/${id}/employees`,
+      { data: input },
+    )
+    return data
   },
 }

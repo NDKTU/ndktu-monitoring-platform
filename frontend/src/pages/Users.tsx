@@ -1,4 +1,4 @@
-import { Plus, Search, ShieldCheck, Trash2, User as UserIcon } from 'lucide-react'
+import { Pencil, Plus, Search, ShieldCheck, Trash2, User as UserIcon } from 'lucide-react'
 import { useState } from 'react'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
@@ -46,6 +46,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { usePagedList } from '@/hooks/usePagedList'
+import { trimFormStrings } from '@/lib/validation'
 import { usersService } from '@/services/users'
 import type { User, UserCreateInput, UserListParams } from '@/types/user'
 
@@ -104,28 +105,61 @@ export default function UsersPage() {
     })
   }
 
-  const [createOpen, setCreateOpen] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editing, setEditing] = useState<User | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [form, setForm] = useState<UserCreateInput>(EMPTY_FORM)
   const [toDelete, setToDelete] = useState<User | null>(null)
 
+  const isEditing = editing !== null
+
   const resetForm = () => {
     setForm(EMPTY_FORM)
     setSubmitError(null)
+    setEditing(null)
   }
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const openCreate = () => {
+    resetForm()
+    setDialogOpen(true)
+  }
+
+  const openEdit = (user: User) => {
+    setEditing(user)
+    setForm({
+      username: user.username,
+      password: '',
+      is_active: user.is_active,
+      is_superuser: user.is_superuser,
+    })
+    setSubmitError(null)
+    setDialogOpen(true)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const cleaned = trimFormStrings(form)
     try {
       setSubmitting(true)
       setSubmitError(null)
-      await usersService.create(form)
-      setCreateOpen(false)
+      setForm(cleaned)
+      if (editing) {
+        const { password: _omit, ...rest } = cleaned
+        void _omit
+        await usersService.update(editing.id, rest)
+      } else {
+        await usersService.create(cleaned)
+      }
+      setDialogOpen(false)
       resetForm()
       await refetch()
     } catch {
-      setSubmitError("Foydalanuvchini yaratib bo'lmadi. Qayta urinib ko‘ring.")
+      setSubmitError(
+        editing
+          ? "Foydalanuvchini yangilab bo'lmadi. Qayta urinib ko‘ring."
+          : "Foydalanuvchini yaratib bo'lmadi. Qayta urinib ko‘ring.",
+      )
     } finally {
       setSubmitting(false)
     }
@@ -148,12 +182,7 @@ export default function UsersPage() {
         title="Foydalanuvchilar"
         description="Tizim hisoblari va kirish huquqlarini boshqarish"
         actions={
-          <Button
-            onClick={() => {
-              resetForm()
-              setCreateOpen(true)
-            }}
-          >
+          <Button onClick={openCreate}>
             <Plus className="size-4" aria-hidden />
             Qo‘shish
           </Button>
@@ -246,7 +275,7 @@ export default function UsersPage() {
                     <TableHead>Foydalanuvchi</TableHead>
                     <TableHead>Holati</TableHead>
                     <TableHead>Roli</TableHead>
-                    <TableHead className="w-16 text-right">Amallar</TableHead>
+                    <TableHead className="w-24 text-right">Amallar</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -281,7 +310,15 @@ export default function UsersPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="flex justify-end">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`${user.username} foydalanuvchisini tahrirlash`}
+                            onClick={() => openEdit(user)}
+                          >
+                            <Pencil className="size-4" aria-hidden />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -310,20 +347,24 @@ export default function UsersPage() {
       </Card>
 
       <Dialog
-        open={createOpen}
+        open={dialogOpen}
         onOpenChange={(next) => {
-          setCreateOpen(next)
+          setDialogOpen(next)
           if (!next) resetForm()
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Yangi foydalanuvchi</DialogTitle>
+            <DialogTitle>
+              {isEditing ? 'Foydalanuvchini tahrirlash' : 'Yangi foydalanuvchi'}
+            </DialogTitle>
             <DialogDescription>
-              Tizim foydalanuvchisi uchun hisob yarating.
+              {isEditing
+                ? 'Foydalanuvchi maʼlumotlarini yangilang. Parolni o‘zgartirib bo‘lmaydi.'
+                : 'Tizim foydalanuvchisi uchun hisob yarating.'}
             </DialogDescription>
           </DialogHeader>
-          <form className="space-y-4" onSubmit={handleCreate}>
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <Label htmlFor="username">Foydalanuvchi nomi</Label>
               <Input
@@ -337,18 +378,32 @@ export default function UsersPage() {
                 autoComplete="off"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Parol</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                value={form.password}
-                onChange={(e) =>
-                  setForm({ ...form, password: e.target.value })
+            {isEditing ? null : (
+              <div className="space-y-2">
+                <Label htmlFor="password">Parol</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={form.password}
+                  onChange={(e) =>
+                    setForm({ ...form, password: e.target.value })
+                  }
+                  autoComplete="new-password"
+                />
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="is_active"
+                checked={form.is_active ?? true}
+                onCheckedChange={(checked) =>
+                  setForm({ ...form, is_active: checked === true })
                 }
-                autoComplete="new-password"
               />
+              <Label htmlFor="is_active" className="cursor-pointer">
+                Faol
+              </Label>
             </div>
             <div className="flex items-center gap-2">
               <Checkbox
@@ -376,12 +431,18 @@ export default function UsersPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setCreateOpen(false)}
+                onClick={() => setDialogOpen(false)}
               >
                 Bekor qilish
               </Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? 'Yaratilmoqda…' : 'Yaratish'}
+                {submitting
+                  ? isEditing
+                    ? 'Saqlanmoqda…'
+                    : 'Yaratilmoqda…'
+                  : isEditing
+                    ? 'Saqlash'
+                    : 'Yaratish'}
               </Button>
             </DialogFooter>
           </form>

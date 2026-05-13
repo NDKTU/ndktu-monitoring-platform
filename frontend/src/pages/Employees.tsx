@@ -1,4 +1,12 @@
-import { ContactRound, Plus, Search, Trash2, UserCheck, UserX } from 'lucide-react'
+import {
+  ContactRound,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  UserCheck,
+  UserX,
+} from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -46,6 +54,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { usePagedList } from '@/hooks/usePagedList'
+import { trimFormStrings } from '@/lib/validation'
 import { employeesService } from '@/services/employees'
 import type {
   Employee,
@@ -113,28 +122,61 @@ export default function EmployeesPage() {
     })
   }
 
-  const [createOpen, setCreateOpen] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editing, setEditing] = useState<Employee | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [form, setForm] = useState<EmployeeCreateInput>(EMPTY_FORM)
   const [toDelete, setToDelete] = useState<Employee | null>(null)
 
+  const isEditing = editing !== null
+
   const resetForm = () => {
     setForm(EMPTY_FORM)
     setSubmitError(null)
+    setEditing(null)
   }
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const openCreate = () => {
+    resetForm()
+    setDialogOpen(true)
+  }
+
+  const openEdit = (employee: Employee) => {
+    setEditing(employee)
+    setForm({
+      first_name: employee.first_name,
+      last_name: employee.last_name,
+      third_name: employee.third_name ?? '',
+      passport_series: employee.passport_series ?? '',
+      jshir: employee.jshir,
+      in_work: employee.in_work,
+    })
+    setSubmitError(null)
+    setDialogOpen(true)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const cleaned = trimFormStrings(form)
     try {
       setSubmitting(true)
       setSubmitError(null)
-      await employeesService.create(form)
-      setCreateOpen(false)
+      setForm(cleaned)
+      if (editing) {
+        await employeesService.update(editing.id, cleaned)
+      } else {
+        await employeesService.create(cleaned)
+      }
+      setDialogOpen(false)
       resetForm()
       await refetch()
     } catch {
-      setSubmitError("Xodimni yaratib bo'lmadi. Maydonlarni tekshiring.")
+      setSubmitError(
+        editing
+          ? "Xodimni yangilab bo'lmadi. Maydonlarni tekshiring."
+          : "Xodimni yaratib bo'lmadi. Maydonlarni tekshiring.",
+      )
     } finally {
       setSubmitting(false)
     }
@@ -157,12 +199,7 @@ export default function EmployeesPage() {
         title="Xodimlar"
         description="Kuzatuv ostidagi xodimlarning biometrik bazasi"
         actions={
-          <Button
-            onClick={() => {
-              resetForm()
-              setCreateOpen(true)
-            }}
-          >
+          <Button onClick={openCreate}>
             <Plus className="size-4" aria-hidden />
             Xodim qo‘shish
           </Button>
@@ -236,7 +273,7 @@ export default function EmployeesPage() {
                     <TableHead>JSHIR</TableHead>
                     <TableHead>Pasport</TableHead>
                     <TableHead>Holati</TableHead>
-                    <TableHead className="w-16 text-right">Amallar</TableHead>
+                    <TableHead className="w-24 text-right">Amallar</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -296,7 +333,15 @@ export default function EmployeesPage() {
                           )}
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
-                          <div className="flex justify-end">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`${employee.full_name} ni tahrirlash`}
+                              onClick={() => openEdit(employee)}
+                            >
+                              <Pencil className="size-4" aria-hidden />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -326,20 +371,24 @@ export default function EmployeesPage() {
       </Card>
 
       <Dialog
-        open={createOpen}
+        open={dialogOpen}
         onOpenChange={(next) => {
-          setCreateOpen(next)
+          setDialogOpen(next)
           if (!next) resetForm()
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Yangi xodim</DialogTitle>
+            <DialogTitle>
+              {isEditing ? 'Xodimni tahrirlash' : 'Yangi xodim'}
+            </DialogTitle>
             <DialogDescription>
-              Xodimning biometrik ma’lumotlarini kiriting.
+              {isEditing
+                ? 'Xodim maʼlumotlarini yangilang.'
+                : 'Xodimning biometrik ma’lumotlarini kiriting.'}
             </DialogDescription>
           </DialogHeader>
-          <form className="space-y-4" onSubmit={handleCreate}>
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="last_name">Familiya</Label>
@@ -420,12 +469,18 @@ export default function EmployeesPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setCreateOpen(false)}
+                onClick={() => setDialogOpen(false)}
               >
                 Bekor qilish
               </Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? 'Yaratilmoqda…' : 'Yaratish'}
+                {submitting
+                  ? isEditing
+                    ? 'Saqlanmoqda…'
+                    : 'Yaratilmoqda…'
+                  : isEditing
+                    ? 'Saqlash'
+                    : 'Yaratish'}
               </Button>
             </DialogFooter>
           </form>

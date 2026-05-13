@@ -34,6 +34,7 @@ class EmployeeResponse(BaseModel):
     jshir: str
     in_work: bool
     image_path: str | None
+    work_schedule_id: int | None = None
 
     @computed_field
     @property
