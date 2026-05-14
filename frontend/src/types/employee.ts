@@ -8,6 +8,8 @@ export type Employee = {
   in_work: boolean
   image_path?: string | null
   work_schedule_id?: number | null
+  position?: string | null
+  department?: string | null
   full_name: string
 }
 
@@ -28,6 +30,8 @@ export type EmployeeCreateInput = {
   jshir: string
   in_work?: boolean
   image_path?: string | null
+  position?: string | null
+  department?: string | null
 }
 
 export type EmployeeUpdateInput = Partial<EmployeeCreateInput>

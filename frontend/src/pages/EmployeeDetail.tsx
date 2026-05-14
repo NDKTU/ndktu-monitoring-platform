@@ -196,6 +196,18 @@ export default function EmployeeDetailPage() {
                   {employee.passport_series || '—'}
                 </span>
               </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Lavozim</span>
+                <span className="font-medium">
+                  {employee.position || '—'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Bo'lim</span>
+                <span className="font-medium">
+                  {employee.department || '—'}
+                </span>
+              </div>
             </CardContent>
             <Separator />
             <CardContent className="pt-4">

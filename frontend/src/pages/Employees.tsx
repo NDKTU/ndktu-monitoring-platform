@@ -71,6 +71,8 @@ const EMPTY_FORM: EmployeeCreateInput = {
   passport_series: '',
   jshir: '',
   in_work: false,
+  position: '',
+  department: '',
 }
 
 function getInitials(employee: Pick<Employee, 'first_name' | 'last_name'>) {
@@ -151,6 +153,8 @@ export default function EmployeesPage() {
       passport_series: employee.passport_series ?? '',
       jshir: employee.jshir,
       in_work: employee.in_work,
+      position: employee.position ?? '',
+      department: employee.department ?? '',
     })
     setSubmitError(null)
     setDialogOpen(true)
@@ -451,6 +455,33 @@ export default function EmployeesPage() {
                     setForm({ ...form, passport_series: e.target.value })
                   }
                   placeholder="AA1234567"
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="position">Lavozim</Label>
+                <Input
+                  id="position"
+                  value={form.position ?? ''}
+                  onChange={(e) =>
+                    setForm({ ...form, position: e.target.value })
+                  }
+                  placeholder="Mutaxassis"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="department">Bo'lim</Label>
+                <Input
+                  id="department"
+                  value={form.department ?? ''}
+                  onChange={(e) =>
+                    setForm({ ...form, department: e.target.value })
+                  }
+                  placeholder="Kafedra / bo'lim"
                   autoComplete="off"
                 />
               </div>

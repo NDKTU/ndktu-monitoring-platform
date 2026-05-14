@@ -11,6 +11,8 @@ class EmployeeCreateRequest(BaseModel):
     jshir: str
     in_work: bool | None = False
     image_path: str | None = None
+    position: str | None = None
+    department: str | None = None
 
 
 class EmployeeUpdateRequest(BaseModel):
@@ -22,6 +24,8 @@ class EmployeeUpdateRequest(BaseModel):
     jshir: str | None = None
     in_work: bool | None = None
     image_path: str | None = None
+    position: str | None = None
+    department: str | None = None
 
 
 class EmployeeResponse(BaseModel):
@@ -35,6 +39,8 @@ class EmployeeResponse(BaseModel):
     in_work: bool
     image_path: str | None
     work_schedule_id: int | None = None
+    position: str | None = None
+    department: str | None = None
 
     @computed_field
     @property

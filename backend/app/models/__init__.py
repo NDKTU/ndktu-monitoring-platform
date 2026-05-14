@@ -5,6 +5,7 @@ from .cameras.model import Cameras
 from .attendance.model import Attendance
 from .work_schedules.model import WorkSchedule
 from .daily_attendance.model import DailyAttendance, AttendanceStatus
+from .tabel_entries.model import TabelEntry, TabelCode
 
 __all__ = [
     "Base",
@@ -15,4 +16,6 @@ __all__ = [
     "WorkSchedule",
     "DailyAttendance",
     "AttendanceStatus",
+    "TabelEntry",
+    "TabelCode",
 ]

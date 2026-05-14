@@ -4,6 +4,7 @@ import {
   Clock,
   ContactRound,
   LayoutDashboard,
+  Table2,
   UserCog,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
     icon: Clock,
     end: false,
   },
+  { to: '/tabel', label: 'Tabel', icon: Table2, end: false },
   { to: '/users', label: 'Foydalanuvchilar', icon: UserCog, end: false },
 ]
 

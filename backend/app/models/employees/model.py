@@ -22,6 +22,8 @@ class Employee(Base, IdIntPk, TimestampMixin):
     jshir: Mapped[str] = mapped_column(String(14), unique=True, nullable=False)
     in_work: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     image_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    position: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    department: Mapped[str | None] = mapped_column(String(120), nullable=True)
     work_schedule_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("work_schedules.id", ondelete="SET NULL"), nullable=True
     )
