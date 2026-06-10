@@ -56,11 +56,16 @@ import {
 import { usePagedList } from '@/hooks/usePagedList'
 import { trimFormStrings } from '@/lib/validation'
 import { employeesService } from '@/services/employees'
+import { positionsService } from '@/services/positions'
+import { departmentsService } from '@/services/departments'
+import type { Position } from '@/types/position'
+import type { Department } from '@/types/department'
 import type {
   Employee,
   EmployeeCreateInput,
   EmployeeListParams,
 } from '@/types/employee'
+import { useEffect } from 'react'
 
 type WorkFilter = 'all' | 'true' | 'false'
 
@@ -71,8 +76,9 @@ const EMPTY_FORM: EmployeeCreateInput = {
   passport_series: '',
   jshir: '',
   in_work: false,
-  position: '',
-  department: '',
+  position_id: null,
+  department_id: null,
+  work_rate: 1.0,
 }
 
 function getInitials(employee: Pick<Employee, 'first_name' | 'last_name'>) {
@@ -131,6 +137,16 @@ export default function EmployeesPage() {
   const [form, setForm] = useState<EmployeeCreateInput>(EMPTY_FORM)
   const [toDelete, setToDelete] = useState<Employee | null>(null)
 
+  const [positions, setPositions] = useState<Position[]>([])
+  const [departments, setDepartments] = useState<Department[]>([])
+
+  useEffect(() => {
+    if (dialogOpen) {
+      positionsService.list({ limit: 100 }).then((res) => setPositions(res.positions)).catch(console.error)
+      departmentsService.list({ limit: 100 }).then((res) => setDepartments(res.departments)).catch(console.error)
+    }
+  }, [dialogOpen])
+
   const isEditing = editing !== null
 
   const resetForm = () => {
@@ -153,8 +169,9 @@ export default function EmployeesPage() {
       passport_series: employee.passport_series ?? '',
       jshir: employee.jshir,
       in_work: employee.in_work,
-      position: employee.position ?? '',
-      department: employee.department ?? '',
+      position_id: employee.position?.id ?? null,
+      department_id: employee.department?.id ?? null,
+      work_rate: employee.work_rate ?? 1.0,
     })
     setSubmitError(null)
     setDialogOpen(true)
@@ -276,6 +293,7 @@ export default function EmployeesPage() {
                     <TableHead>Xodim</TableHead>
                     <TableHead>JSHIR</TableHead>
                     <TableHead>Pasport</TableHead>
+                    <TableHead>Stavka</TableHead>
                     <TableHead>Holati</TableHead>
                     <TableHead className="w-24 text-right">Amallar</TableHead>
                   </TableRow>
@@ -319,6 +337,9 @@ export default function EmployeesPage() {
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {employee.passport_series || '—'}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm tabular-nums">
+                          {employee.work_rate ?? 1.0}
                         </TableCell>
                         <TableCell>
                           {employee.in_work ? (
@@ -463,28 +484,77 @@ export default function EmployeesPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="position">Lavozim</Label>
-                <Input
-                  id="position"
-                  value={form.position ?? ''}
-                  onChange={(e) =>
-                    setForm({ ...form, position: e.target.value })
+                <Select
+                  value={form.position_id ? String(form.position_id) : 'none'}
+                  onValueChange={(val) =>
+                    setForm({
+                      ...form,
+                      position_id: val === 'none' ? null : Number(val),
+                    })
                   }
-                  placeholder="Mutaxassis"
-                  autoComplete="off"
-                />
+                >
+                  <SelectTrigger id="position">
+                    <SelectValue placeholder="Lavozimni tanlang" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Tanlanmagan</SelectItem>
+                    {positions.map((p) => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="department">Bo'lim</Label>
-                <Input
-                  id="department"
-                  value={form.department ?? ''}
-                  onChange={(e) =>
-                    setForm({ ...form, department: e.target.value })
+                <Select
+                  value={form.department_id ? String(form.department_id) : 'none'}
+                  onValueChange={(val) =>
+                    setForm({
+                      ...form,
+                      department_id: val === 'none' ? null : Number(val),
+                    })
                   }
-                  placeholder="Kafedra / bo'lim"
-                  autoComplete="off"
-                />
+                >
+                  <SelectTrigger id="department">
+                    <SelectValue placeholder="Bo'limni tanlang" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Tanlanmagan</SelectItem>
+                    {departments.map((d) => (
+                      <SelectItem key={d.id} value={String(d.id)}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="work_rate">Ish stavkasi</Label>
+              <Select
+                value={String(form.work_rate ?? 1.0)}
+                onValueChange={(val) =>
+                  setForm({
+                    ...form,
+                    work_rate: Number(val),
+                  })
+                }
+              >
+                <SelectTrigger id="work_rate">
+                  <SelectValue placeholder="Ish stavkasini tanlang" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0.25">0.25 (Chorak stavka)</SelectItem>
+                  <SelectItem value="0.5">0.5 (Yarim stavka)</SelectItem>
+                  <SelectItem value="0.75">0.75 (0.75 stavka)</SelectItem>
+                  <SelectItem value="1.0">1.0 (To'liq stavka)</SelectItem>
+                  <SelectItem value="1.5">1.5 (1.5 stavka)</SelectItem>
+                  <SelectItem value="2.0">2.0 (Ikki stavka)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {submitError ? (

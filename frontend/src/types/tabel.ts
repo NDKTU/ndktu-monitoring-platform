@@ -49,6 +49,7 @@ export type TabelRow = {
   department: string | null
   cells: TabelCell[]
   worked_days: number
+  work_rate: number
 }
 
 export type TabelMonthResponse = {

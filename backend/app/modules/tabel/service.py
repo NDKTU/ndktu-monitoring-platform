@@ -85,10 +85,11 @@ class TabelService:
                 TabelRow(
                     employee_id=emp.id,
                     full_name=emp.full_name,
-                    position=emp.position,
-                    department=emp.department,
+                    position=emp.position.name if emp.position else None,
+                    department=emp.department.name if emp.department else None,
                     cells=cells,
                     worked_days=worked_days,
+                    work_rate=emp.work_rate,
                 )
             )
 

@@ -6,6 +6,8 @@ from .attendance.model import Attendance
 from .work_schedules.model import WorkSchedule
 from .daily_attendance.model import DailyAttendance, AttendanceStatus
 from .tabel_entries.model import TabelEntry, TabelCode
+from .positions.model import Position
+from .departments.model import Department
 
 __all__ = [
     "Base",
@@ -18,4 +20,6 @@ __all__ = [
     "AttendanceStatus",
     "TabelEntry",
     "TabelCode",
+    "Position",
+    "Department",
 ]

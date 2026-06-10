@@ -8,6 +8,10 @@ from app.models.employees.model import Employee
 from app.models.tabel_entries.model import TabelCode, TabelEntry
 
 
+from sqlalchemy.orm import joinedload
+from app.models.departments.model import Department
+
+
 class TabelRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -15,9 +19,12 @@ class TabelRepository:
     async def get_employees(
         self, department: str | None, search: str | None
     ) -> list[Employee]:
-        query = select(Employee)
+        query = select(Employee).options(
+            joinedload(Employee.position),
+            joinedload(Employee.department),
+        )
         if department:
-            query = query.where(Employee.department.ilike(f"%{department}%"))
+            query = query.join(Employee.department).where(Department.name.ilike(f"%{department}%"))
         if search:
             term = f"%{search}%"
             query = query.where(

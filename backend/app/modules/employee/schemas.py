@@ -1,5 +1,7 @@
 from pydantic import BaseModel, computed_field
 from pydantic_settings import SettingsConfigDict
+from app.modules.position.schemas import PositionResponse
+from app.modules.department.schemas import DepartmentResponse
 
 
 class EmployeeCreateRequest(BaseModel):
@@ -11,8 +13,9 @@ class EmployeeCreateRequest(BaseModel):
     jshir: str
     in_work: bool | None = False
     image_path: str | None = None
-    position: str | None = None
-    department: str | None = None
+    position_id: int | None = None
+    department_id: int | None = None
+    work_rate: float | None = 1.0
 
 
 class EmployeeUpdateRequest(BaseModel):
@@ -24,8 +27,9 @@ class EmployeeUpdateRequest(BaseModel):
     jshir: str | None = None
     in_work: bool | None = None
     image_path: str | None = None
-    position: str | None = None
-    department: str | None = None
+    position_id: int | None = None
+    department_id: int | None = None
+    work_rate: float | None = None
 
 
 class EmployeeResponse(BaseModel):
@@ -38,9 +42,11 @@ class EmployeeResponse(BaseModel):
     jshir: str
     in_work: bool
     image_path: str | None
-    work_schedule_id: int | None = None
-    position: str | None = None
-    department: str | None = None
+    position_id: int | None = None
+    department_id: int | None = None
+    position: PositionResponse | None = None
+    department: DepartmentResponse | None = None
+    work_rate: float = 1.0
 
     @computed_field
     @property

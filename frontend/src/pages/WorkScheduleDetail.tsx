@@ -220,7 +220,7 @@ export default function WorkScheduleDetailPage() {
   }
 
   const candidates = allEmployees.filter(
-    (e) => !e.work_schedule_id || e.work_schedule_id !== scheduleId,
+    (e) => !e.department?.work_schedule_id || e.department.work_schedule_id !== scheduleId,
   )
 
   return (

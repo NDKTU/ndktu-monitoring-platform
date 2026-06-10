@@ -28,6 +28,7 @@ class TabelRow(BaseModel):
     department: str | None
     cells: list[TabelCell]
     worked_days: int
+    work_rate: float
 
 
 class TabelMonthResponse(BaseModel):

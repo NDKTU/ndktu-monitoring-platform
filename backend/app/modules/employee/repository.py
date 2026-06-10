@@ -1,7 +1,9 @@
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.models.employees.model import Employee
+from app.models.departments.model import Department
 from app.modules.employee.schemas import (
     EmployeeCreateRequest,
     EmployeeUpdateRequest,
@@ -19,11 +21,15 @@ class EmployeeRepository:
         db_employee = Employee(**employee.model_dump())
         self.session.add(db_employee)
         await self.session.commit()
-        await self.session.refresh(db_employee)
-        return db_employee
+        
+        # Load relationships and return
+        return await self.get_employee(db_employee.id)
 
     async def list_employees(self, request: EmployeeListRequest) -> EmployeeListResponse:
-        query = select(Employee)
+        query = select(Employee).options(
+            joinedload(Employee.position),
+            joinedload(Employee.department).joinedload(Department.work_schedule),
+        )
 
         if request.search:
             search_term = f"%{request.search}%"
@@ -58,7 +64,12 @@ class EmployeeRepository:
 
     async def get_employee(self, employee_id: int) -> Employee | None:
         result = await self.session.execute(
-            select(Employee).where(Employee.id == employee_id)
+            select(Employee)
+            .options(
+                joinedload(Employee.position),
+                joinedload(Employee.department).joinedload(Department.work_schedule),
+            )
+            .where(Employee.id == employee_id)
         )
         return result.scalar()
 
@@ -75,7 +86,7 @@ class EmployeeRepository:
 
         await self.session.commit()
         await self.session.refresh(db_employee)
-        return db_employee
+        return await self.get_employee(employee_id)
 
     async def delete_employee(self, employee_id: int) -> Employee | None:
         db_employee = await self.get_employee(employee_id)

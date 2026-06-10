@@ -2,6 +2,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.employees.model import Employee
+from app.models.departments.model import Department
 from app.models.work_schedules.model import WorkSchedule
 from app.modules.work_schedule.schemas import (
     WorkScheduleCreateRequest,
@@ -38,7 +39,8 @@ class WorkScheduleRepository:
         employee_count = func.count(Employee.id)
         rows_stmt = (
             select(WorkSchedule, employee_count.label("employee_count"))
-            .outerjoin(Employee, Employee.work_schedule_id == WorkSchedule.id)
+            .outerjoin(Department, Department.work_schedule_id == WorkSchedule.id)
+            .outerjoin(Employee, Employee.department_id == Department.id)
             .group_by(WorkSchedule.id)
             .order_by(WorkSchedule.start_time, WorkSchedule.end_time)
             .offset(offset)
@@ -58,8 +60,10 @@ class WorkScheduleRepository:
         return result.scalar_one_or_none()
 
     async def get_employee_count(self, schedule_id: int) -> int:
-        stmt = select(func.count(Employee.id)).where(
-            Employee.work_schedule_id == schedule_id
+        stmt = (
+            select(func.count(Employee.id))
+            .join(Department, Employee.department_id == Department.id)
+            .where(Department.work_schedule_id == schedule_id)
         )
         return int((await self.session.execute(stmt)).scalar() or 0)
 
@@ -82,8 +86,8 @@ class WorkScheduleRepository:
         if not db_schedule:
             return None
         await self.session.execute(
-            update(Employee)
-            .where(Employee.work_schedule_id == schedule_id)
+            update(Department)
+            .where(Department.work_schedule_id == schedule_id)
             .values(work_schedule_id=None)
         )
         await self.session.delete(db_schedule)
@@ -93,7 +97,11 @@ class WorkScheduleRepository:
     async def list_employees(
         self, schedule_id: int, offset: int, limit: int
     ) -> tuple[int, list[Employee]]:
-        base = select(Employee).where(Employee.work_schedule_id == schedule_id)
+        base = (
+            select(Employee)
+            .join(Department, Employee.department_id == Department.id)
+            .where(Department.work_schedule_id == schedule_id)
+        )
 
         total_stmt = select(func.count()).select_from(base.subquery())
         total = (await self.session.execute(total_stmt)).scalar() or 0
@@ -107,9 +115,19 @@ class WorkScheduleRepository:
     ) -> int:
         if not employee_ids:
             return 0
+        
+        # Get departments of the given employees
+        stmt = select(Employee.department_id).where(
+            Employee.id.in_(employee_ids),
+            Employee.department_id.is_not(None)
+        )
+        dept_ids = (await self.session.execute(stmt)).scalars().all()
+        if not dept_ids:
+            return 0
+            
         result = await self.session.execute(
-            update(Employee)
-            .where(Employee.id.in_(employee_ids))
+            update(Department)
+            .where(Department.id.in_(dept_ids))
             .values(work_schedule_id=schedule_id)
         )
         await self.session.commit()
@@ -120,11 +138,21 @@ class WorkScheduleRepository:
     ) -> int:
         if not employee_ids:
             return 0
+            
+        # Get departments of the given employees
+        stmt = select(Employee.department_id).where(
+            Employee.id.in_(employee_ids),
+            Employee.department_id.is_not(None)
+        )
+        dept_ids = (await self.session.execute(stmt)).scalars().all()
+        if not dept_ids:
+            return 0
+            
         result = await self.session.execute(
-            update(Employee)
+            update(Department)
             .where(
-                Employee.id.in_(employee_ids),
-                Employee.work_schedule_id == schedule_id,
+                Department.id.in_(dept_ids),
+                Department.work_schedule_id == schedule_id,
             )
             .values(work_schedule_id=None)
         )

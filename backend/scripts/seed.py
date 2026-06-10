@@ -26,6 +26,8 @@ from app.models.daily_attendance.model import AttendanceStatus, DailyAttendance
 from app.models.employees.model import Employee
 from app.models.users.model import User
 from app.models.work_schedules.model import WorkSchedule
+from app.models.positions.model import Position
+from app.models.departments.model import Department
 
 
 # ── static data ─────────────────────────────────────────────────────────
@@ -103,6 +105,7 @@ def gen_employee(i: int) -> dict:
         "jshir": f"301019{i:08d}",
         "in_work": i % 5 != 0,
         "image_path": None,
+        "work_rate": [1.0, 0.75, 0.5][i % 3],
     }
 
 
@@ -176,10 +179,13 @@ async def seed_employees(session: AsyncSession) -> list[Employee]:
     for i in range(EMPLOYEE_COUNT):
         data = gen_employee(i)
         if data["jshir"] in existing_map:
+            emp = existing_map[data["jshir"]]
+            emp.work_rate = data["work_rate"]
             continue
         to_add.append(Employee(**data))
-    if to_add:
-        session.add_all(to_add)
+    if to_add or existing_map:
+        if to_add:
+            session.add_all(to_add)
         await session.commit()
         for emp in to_add:
             await session.refresh(emp)
@@ -216,27 +222,67 @@ async def seed_schedules(
             if ws.id is None:
                 await session.refresh(ws)
 
-    # 2. Assign templates to employees who don't yet have one.
+    # 2. Seed Positions
+    static_positions = ["Dasturchi", "Tizim ma'muri", "Loyha menejeri", "Kassir"]
+    position_map = {}
+    for pos_name in static_positions:
+        stmt = select(Position).where(Position.name == pos_name)
+        existing_pos = (await session.execute(stmt)).scalar_one_or_none()
+        if not existing_pos:
+            existing_pos = Position(name=pos_name)
+            session.add(existing_pos)
+            await session.commit()
+            await session.refresh(existing_pos)
+        position_map[pos_name] = existing_pos
+    pos_list = list(position_map.values())
+
+    # 3. Seed Departments and link them to schedules
+    static_depts = [
+        ("IT bo'limi", SCHEDULES[0]),
+        ("Moliya bo'limi", SCHEDULES[1]),
+        ("Ma'muriyat", SCHEDULES[2]),
+    ]
+    dept_list = []
+    for dept_name, sched_tpl in static_depts:
+        ws = by_key[sched_tpl]
+        stmt = select(Department).where(Department.name == dept_name)
+        existing_dept = (await session.execute(stmt)).scalar_one_or_none()
+        if not existing_dept:
+            existing_dept = Department(name=dept_name, work_schedule_id=ws.id)
+            session.add(existing_dept)
+            await session.commit()
+            await session.refresh(existing_dept)
+        else:
+            if existing_dept.work_schedule_id != ws.id:
+                existing_dept.work_schedule_id = ws.id
+                await session.commit()
+        dept_list.append(existing_dept)
+
+    # 4. Assign departments and positions to employees
     assigned = 0
     for emp in employees:
-        if emp.work_schedule_id is not None:
+        if emp.department_id is not None and emp.position_id is not None:
             continue
-        start, end, grace = SCHEDULES[_employee_schedule_index(emp)]
-        ws = by_key[(start, end, grace)]
+        
+        dept_idx = _employee_schedule_index(emp)
+        dept = dept_list[dept_idx]
+        pos = pos_list[emp.id % len(pos_list)]
+        
         await session.execute(
             update(Employee)
             .where(Employee.id == emp.id)
-            .values(work_schedule_id=ws.id)
+            .values(department_id=dept.id, position_id=pos.id)
         )
-        emp.work_schedule_id = ws.id
+        emp.department_id = dept.id
+        emp.position_id = pos.id
         assigned += 1
 
     if assigned:
         await session.commit()
 
     print(
-        f"[schedules] templates_added={added_templates} "
-        f"employees_assigned={assigned} kept={len(employees) - assigned}"
+        f"[schedules/depts] templates={len(by_key)} departments={len(dept_list)} positions={len(pos_list)} "
+        f"employees_updated={assigned} kept={len(employees) - assigned}"
     )
 
 

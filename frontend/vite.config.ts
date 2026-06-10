@@ -14,5 +14,12 @@ export default defineConfig({
     host: true,
     port: 5173,
     allowedHosts: ['face.api.nsumt.uz'],
+    proxy: {
+      '/api': {
+        target: 'http://backend:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
   },
 })

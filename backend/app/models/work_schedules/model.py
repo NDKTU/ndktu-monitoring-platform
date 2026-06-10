@@ -8,7 +8,7 @@ from app.models.base import Base
 from app.models.mixins import IdIntPk, TimestampMixin
 
 if TYPE_CHECKING:
-    from app.models.employees.model import Employee
+    from app.models.departments.model import Department
 
 
 class WorkSchedule(Base, IdIntPk, TimestampMixin):
@@ -24,6 +24,6 @@ class WorkSchedule(Base, IdIntPk, TimestampMixin):
     end_time: Mapped[time] = mapped_column(Time, nullable=False)
     grace_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    employees: Mapped[list["Employee"]] = relationship(
-        "Employee", back_populates="work_schedule"
+    departments: Mapped[list["Department"]] = relationship(
+        "Department", back_populates="work_schedule"
     )

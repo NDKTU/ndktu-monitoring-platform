@@ -1,5 +1,5 @@
 import { Table2 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -128,6 +128,22 @@ export default function TabelPage() {
     const d = new Date(year, month - 1, day)
     return d.getDay() === 0 || d.getDay() === 6
   }
+
+  const groupedRows = useMemo(() => {
+    if (!data) return []
+    const groups: { [key: string]: TabelRow[] } = {}
+    for (const row of data.rows) {
+      const deptName = row.department || "Bo'limsiz"
+      if (!groups[deptName]) {
+        groups[deptName] = []
+      }
+      groups[deptName].push(row)
+    }
+    return Object.entries(groups).map(([name, rows]) => ({
+      name,
+      rows,
+    }))
+  }, [data])
 
   const openCell = (row: TabelRow, day: number) => {
     const cell = row.cells.find((c) => c.day === day)
@@ -287,39 +303,48 @@ export default function TabelPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.rows.map((row) => (
-                  <TableRow key={row.employee_id}>
-                    <TableCell className="sticky left-0 z-10 bg-card">
-                      <div className="font-medium">{row.full_name}</div>
-                      {row.position ? (
-                        <div className="text-xs text-muted-foreground">
-                          {row.position}
-                        </div>
-                      ) : null}
-                    </TableCell>
-                    {row.cells.map((cell) => (
-                      <TableCell key={cell.day} className="p-0.5 text-center">
-                        <button
-                          type="button"
-                          onClick={() => openCell(row, cell.day)}
-                          className={cn(
-                            'inline-flex size-8 items-center justify-center rounded text-xs font-medium transition-colors hover:ring-2 hover:ring-ring',
-                            cell.code
-                              ? CODE_CLASS[cell.code]
-                              : 'text-muted-foreground hover:bg-accent',
-                            cell.source === 'manual' &&
-                              'ring-1 ring-inset ring-foreground/20',
-                          )}
-                          aria-label={`${row.full_name} — ${cell.day}-kun`}
-                        >
-                          {cell.code ?? '·'}
-                        </button>
+                {groupedRows.map((group) => (
+                  <Fragment key={group.name}>
+                    <TableRow className="bg-muted/40 hover:bg-muted/45 select-none font-semibold">
+                      <TableCell colSpan={dayNumbers.length + 2} className="h-9 py-1 text-sm text-foreground">
+                        {group.name}
                       </TableCell>
+                    </TableRow>
+                    {group.rows.map((row) => (
+                      <TableRow key={row.employee_id}>
+                        <TableCell className="sticky left-0 z-10 bg-card">
+                          <div className="font-medium">{row.full_name}</div>
+                          <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                            {row.position ? <span>{row.position}</span> : null}
+                            {row.position && row.work_rate ? <span>•</span> : null}
+                            {row.work_rate ? <span>{row.work_rate} stavka</span> : null}
+                          </div>
+                        </TableCell>
+                        {row.cells.map((cell) => (
+                          <TableCell key={cell.day} className="p-0.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => openCell(row, cell.day)}
+                              className={cn(
+                                'inline-flex size-8 items-center justify-center rounded text-xs font-medium transition-colors hover:ring-2 hover:ring-ring',
+                                cell.code
+                                  ? CODE_CLASS[cell.code]
+                                  : 'text-muted-foreground hover:bg-accent',
+                                cell.source === 'manual' &&
+                                  'ring-1 ring-inset ring-foreground/20',
+                              )}
+                              aria-label={`${row.full_name} — ${cell.day}-kun`}
+                            >
+                              {cell.code ?? '·'}
+                            </button>
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-right font-semibold tabular-nums">
+                          {row.worked_days}
+                        </TableCell>
+                      </TableRow>
                     ))}
-                    <TableCell className="text-right font-semibold tabular-nums">
-                      {row.worked_days}
-                    </TableCell>
-                  </TableRow>
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>

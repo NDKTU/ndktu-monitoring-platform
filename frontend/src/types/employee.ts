@@ -1,3 +1,17 @@
+import type { WorkSchedule } from './workSchedule'
+
+export type PositionShort = {
+  id: number
+  name: string
+}
+
+export type DepartmentShort = {
+  id: number
+  name: string
+  work_schedule_id?: number | null
+  work_schedule?: WorkSchedule | null
+}
+
 export type Employee = {
   id: number
   first_name: string
@@ -7,10 +21,12 @@ export type Employee = {
   jshir: string
   in_work: boolean
   image_path?: string | null
-  work_schedule_id?: number | null
-  position?: string | null
-  department?: string | null
+  position_id?: number | null
+  department_id?: number | null
+  position?: PositionShort | null
+  department?: DepartmentShort | null
   full_name: string
+  work_rate: number
 }
 
 export type EmployeeShortResponse = {
@@ -30,8 +46,9 @@ export type EmployeeCreateInput = {
   jshir: string
   in_work?: boolean
   image_path?: string | null
-  position?: string | null
-  department?: string | null
+  position_id?: number | null
+  department_id?: number | null
+  work_rate?: number
 }
 
 export type EmployeeUpdateInput = Partial<EmployeeCreateInput>

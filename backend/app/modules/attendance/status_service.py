@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.attendance.model import Attendance
 from app.models.daily_attendance.model import AttendanceStatus, DailyAttendance
 from app.models.employees.model import Employee
+from app.models.departments.model import Department
 from app.models.work_schedules.model import WorkSchedule
 
 logger = logging.getLogger(__name__)
@@ -69,7 +70,8 @@ async def _get_or_create_daily(
 async def _get_schedule(session: AsyncSession, employee_id: int) -> WorkSchedule | None:
     stmt = (
         select(WorkSchedule)
-        .join(Employee, Employee.work_schedule_id == WorkSchedule.id)
+        .join(Department, Department.work_schedule_id == WorkSchedule.id)
+        .join(Employee, Employee.department_id == Department.id)
         .where(Employee.id == employee_id)
     )
     result = await session.execute(stmt)

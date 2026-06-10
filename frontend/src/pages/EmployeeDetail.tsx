@@ -199,13 +199,19 @@ export default function EmployeeDetailPage() {
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">Lavozim</span>
                 <span className="font-medium">
-                  {employee.position || '—'}
+                  {employee.position?.name || '—'}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">Bo'lim</span>
                 <span className="font-medium">
-                  {employee.department || '—'}
+                  {employee.department?.name || '—'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Ish stavkasi</span>
+                <span className="font-medium">
+                  {employee.work_rate ?? 1.0} stavka
                 </span>
               </div>
             </CardContent>
@@ -240,10 +246,9 @@ function ScheduleSection({ employeeId }: { employeeId: number }) {
     try {
       setLoading(true)
       setError(null)
-      const employee = await employeesService.get(employeeId)
-      if (employee.work_schedule_id) {
-        const ws = await workSchedulesService.get(employee.work_schedule_id)
-        setSchedule(ws)
+      const emp = await employeesService.get(employeeId)
+      if (emp.department?.work_schedule) {
+        setSchedule(emp.department.work_schedule)
       } else {
         setSchedule(null)
       }

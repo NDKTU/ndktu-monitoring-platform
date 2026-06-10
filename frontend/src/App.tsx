@@ -5,6 +5,8 @@ import DailyAttendancePage from '@/pages/DailyAttendance'
 import DashboardPage from '@/pages/Dashboard'
 import EmployeeDetailPage from '@/pages/EmployeeDetail'
 import EmployeesPage from '@/pages/Employees'
+import PositionsPage from '@/pages/Positions'
+import DepartmentsPage from '@/pages/Departments'
 import UsersPage from '@/pages/Users'
 import WorkSchedulesPage from '@/pages/WorkSchedules'
 import WorkScheduleDetailPage from '@/pages/WorkScheduleDetail'
@@ -18,6 +20,8 @@ export default function App() {
         <Route path="cameras" element={<CamerasPage />} />
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="employees/:id" element={<EmployeeDetailPage />} />
+        <Route path="positions" element={<PositionsPage />} />
+        <Route path="departments" element={<DepartmentsPage />} />
         <Route path="daily-attendance" element={<DailyAttendancePage />} />
         <Route path="work-schedules" element={<WorkSchedulesPage />} />
         <Route path="work-schedules/:id" element={<WorkScheduleDetailPage />} />
