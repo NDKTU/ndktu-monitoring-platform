@@ -30,11 +30,16 @@ async def _mark_camera_inactive(camera_id: int) -> None:
 async def probe_hikvision(
     device_ip: str, login: str, password: str, timeout: float = 3.0
 ) -> str | None:
-    """Quick handshake check against the Hikvision alertStream endpoint.
+    """Quick reachability/auth check against the Hikvision device.
+
+    Uses /ISAPI/System/deviceInfo (a plain request) instead of the alertStream
+    endpoint: DS-705 devices allow only ONE alertStream session, so probing it
+    held the single slot and made the real stream connection fail with 404.
+    deviceInfo does not consume the event-stream slot.
 
     Returns None on success or a user-facing error message (Uzbek) on failure.
     """
-    url = f"http://{device_ip}/ISAPI/Event/notification/alertStream?format=json"
+    url = f"http://{device_ip}/ISAPI/System/deviceInfo"
     auth = httpx.DigestAuth(login, password)
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:

@@ -44,6 +44,11 @@ class CameraService:
         if not db_camera:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
 
+        # Already streaming → don't probe again. The device allows only one
+        # event session, so a fresh probe could collide with the live stream.
+        if camera_id in camera_manager.active_streams:
+            return db_camera
+
         error = await probe_hikvision(
             db_camera.device_ip, db_camera.login, db_camera.password
         )
