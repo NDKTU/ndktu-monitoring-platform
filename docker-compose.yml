@@ -2,7 +2,7 @@ services:
   database:
     image: postgres:17-alpine
     container_name: ndktu_db
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_DB: camera_base
       POSTGRES_USER: bekzod
@@ -15,7 +15,7 @@ services:
   backend:
     build: ./backend
     container_name: ndktu_backend
-    restart: always
+    restart: unless-stopped
     env_file: ./backend/.env
     environment:
       APP__DATABASE__HOST: database   # override localhost -> compose service name
@@ -29,7 +29,7 @@ services:
   frontend:
     build: ./frontend
     container_name: ndktu_frontend
-    restart: always
+    restart: unless-stopped
     environment:
       VITE_API_URL: /api             # API goes through nginx on the same domain
     ports:
