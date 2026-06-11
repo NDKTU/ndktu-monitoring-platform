@@ -7,7 +7,7 @@ class UserCreateRequest(BaseModel):
     username: str
     password: str
     is_active: bool | None = True
-    is_superuser: bool | None = False
+    role_id: int | None = None
 
 
 class UserUpdateRequest(BaseModel):
@@ -15,15 +15,23 @@ class UserUpdateRequest(BaseModel):
     username: str | None = None
     password: str | None = None
     is_active: bool | None = None
-    is_superuser: bool | None = None
+    role_id: int | None = None
 
+
+class RoleSimpleResponse(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
 
 class UserResponse(BaseModel):
     model_config = SettingsConfigDict(str_strip_whitespace=True, from_attributes=True)
     id: int
     username: str
     is_active: bool
-    is_superuser: bool
+    role_id: int | None
+    role: RoleSimpleResponse | None = None
 
 
 class UserListRequest(BaseModel):
@@ -32,7 +40,7 @@ class UserListRequest(BaseModel):
     limit: int = 10
     search: str | None = None
     is_active: bool | None = None
-    is_superuser: bool | None = None
+    role_id: int | None = None
 
     @property
     def offset(self) -> int:

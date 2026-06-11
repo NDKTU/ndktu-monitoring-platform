@@ -1,4 +1,8 @@
 from fastapi import HTTPException, status, UploadFile
+from app.modules.employee.hikvision_service import HikiUserService
+from app.modules.camera.repository import CameraRepository
+from app.core.config import settings
+import logging
 
 from app.models.employees.model import Employee
 from app.modules.employee.repository import EmployeeRepository
@@ -10,14 +14,58 @@ from app.modules.employee.schemas import (
     EmployeeUploadResponse,
 )
 
-
-
 class EmployeeService:
     def __init__(self, repository: EmployeeRepository) -> None:
         self.repository = repository
 
+    async def _sync_with_hikvision(self, action: str, **kwargs):
+        if not settings.hikvision.enabled:
+            return
+            
+        camera_repo = CameraRepository(self.repository.session)
+        cameras = await camera_repo.get_all_active_cameras()
+        
+        async def sync_single_camera(camera):
+            hiki_service = HikiUserService(
+                ip_address=camera.device_ip,
+                username=camera.login,
+                password=camera.password,
+                enabled=True
+            )
+            
+            # Check if camera is actually reachable before attempting
+            is_reachable = await hiki_service.check_connection()
+            if not is_reachable:
+                logging.warning(f"Camera {camera.device_ip} is unreachable. Skipping {action}.")
+                # Optionally, here we could update camera.is_active = False in DB
+                return
+                
+            try:
+                if action == "create":
+                    await hiki_service.create_user(user_id=kwargs['user_id'], user_name=kwargs['user_name'])
+                elif action == "modify":
+                    await hiki_service.modify_user(user_id=kwargs['user_id'], new_name=kwargs['user_name'])
+                elif action == "delete":
+                    await hiki_service.delete_user(user_id=kwargs['user_id'])
+                elif action == "upload_face":
+                    success = await hiki_service.upload_face_image(user_id=kwargs['user_id'], image_path=kwargs['image_path'])
+                    if not success:
+                         logging.error(f"Failed to upload face on camera {camera.device_ip}")
+            except Exception as e:
+                logging.error(f"Failed to {action} on camera {camera.device_ip}: {e}")
+
+        import asyncio
+        # Run syncs concurrently for all active cameras
+        tasks = [sync_single_camera(camera) for camera in cameras]
+        if tasks:
+            await asyncio.gather(*tasks)
+
     async def create_employee(self, employee: EmployeeCreateRequest) -> Employee:
-        return await self.repository.create_employee(employee)
+        new_employee = await self.repository.create_employee(employee)
+        # Sync with Hikvision
+        user_name = f"{new_employee.first_name} {new_employee.last_name}"
+        await self._sync_with_hikvision("create", user_id=new_employee.jshir, user_name=user_name)
+        return new_employee
 
     async def list_employees(self, request: EmployeeListRequest) -> EmployeeListResponse:
         return await self.repository.list_employees(request)
@@ -38,6 +86,11 @@ class EmployeeService:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found"
             )
+        
+        # Sync with Hikvision
+        user_name = f"{updated.first_name} {updated.last_name}"
+        await self._sync_with_hikvision("modify", user_id=updated.jshir, user_name=user_name)
+        
         return updated
 
     async def delete_employee(self, employee_id: int) -> Employee:
@@ -46,6 +99,10 @@ class EmployeeService:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found"
             )
+        
+        # Sync with Hikvision
+        await self._sync_with_hikvision("delete", user_id=deleted.jshir)
+        
         return deleted
 
     async def upload_excel(self, file: UploadFile) -> EmployeeUploadResponse:
@@ -266,6 +323,14 @@ class EmployeeService:
                 await self.repository.session.commit()
                 imported_count += 1
 
+                # Sync with Hikvision (non-blocking errors)
+                try:
+                    user_name = f"{first_name} {last_name}"
+                    await self._sync_with_hikvision("create", user_id=jshir, user_name=user_name)
+                except Exception as hik_err:
+                    import logging
+                    logging.error(f"Hikvision sync error for {jshir}: {hik_err}")
+
             except Exception as row_err:
                 await self.repository.session.rollback()
                 errors.append(f"{row_num}-qatorda xatolik: {str(row_err)}")
@@ -275,4 +340,27 @@ class EmployeeService:
             imported_count=imported_count,
             errors=errors
         )
+
+    async def upload_face(self, employee_id: int, file: UploadFile) -> dict:
+        import os
+        import uuid
+        
+        employee = await self.get_employee(employee_id)
+        
+        # Save file locally first
+        upload_dir = "uploads/faces"
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+        file_name = f"{employee.jshir}_{uuid.uuid4().hex[:8]}.{ext}"
+        file_path = os.path.join(upload_dir, file_name)
+        
+        content = await file.read()
+        with open(file_path, "wb") as f:
+            f.write(content)
+            
+        # Sync with Hikvision
+        await self._sync_with_hikvision("upload_face", user_id=employee.jshir, image_path=file_path)
+            
+        return {"success": True, "message": "Face uploaded successfully", "path": file_path}
 

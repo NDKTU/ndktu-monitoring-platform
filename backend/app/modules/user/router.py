@@ -11,6 +11,7 @@ from app.modules.user.schemas import (
     UserListResponse,
     UserResponse
 )
+from app.modules.auth.dependencies import PermissionChecker
 
 router = APIRouter(
     tags=["Users"],
@@ -24,7 +25,7 @@ def get_user_service(
     return UserService(repository)
 
 
-@router.post("/", response_model=UserResponse)
+@router.post("/", response_model=UserResponse, dependencies=[Depends(PermissionChecker("users:create_user"))])
 async def create_user(
     user: UserCreateRequest,
     service: UserService = Depends(get_user_service)
@@ -32,7 +33,7 @@ async def create_user(
     return await service.create_user(user)
 
 
-@router.get("/list", response_model=UserListResponse)
+@router.get("/list", response_model=UserListResponse, dependencies=[Depends(PermissionChecker("users:list_users"))])
 async def list_users(
     request: UserListRequest = Depends(),
     service: UserService = Depends(get_user_service)
@@ -40,7 +41,7 @@ async def list_users(
     return await service.list_users(request)
 
 
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get("/{user_id}", response_model=UserResponse, dependencies=[Depends(PermissionChecker("users:get_user"))])
 async def get_user(
     user_id: int,
     service: UserService = Depends(get_user_service)
@@ -48,7 +49,7 @@ async def get_user(
     return await service.get_user(user_id)
 
 
-@router.put("/{user_id}", response_model=UserResponse)
+@router.put("/{user_id}", response_model=UserResponse, dependencies=[Depends(PermissionChecker("users:update_user"))])
 async def update_user(
     user_id: int,
     user: UserUpdateRequest,
@@ -57,7 +58,7 @@ async def update_user(
     return await service.update_user(user_id, user)
 
 
-@router.delete("/{user_id}", response_model=UserResponse)
+@router.delete("/{user_id}", response_model=UserResponse, dependencies=[Depends(PermissionChecker("users:delete_user"))])
 async def delete_user(
     user_id: int,
     service: UserService = Depends(get_user_service)

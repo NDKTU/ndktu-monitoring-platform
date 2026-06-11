@@ -8,6 +8,7 @@ from .daily_attendance.model import DailyAttendance, AttendanceStatus
 from .tabel_entries.model import TabelEntry, TabelCode
 from .positions.model import Position
 from .departments.model import Department
+from .rbac.model import Role, Permission, RolePermission
 
 __all__ = [
     "Base",
@@ -22,4 +23,7 @@ __all__ = [
     "TabelCode",
     "Position",
     "Department",
+    "Role",
+    "Permission",
+    "RolePermission",
 ]

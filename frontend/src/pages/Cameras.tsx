@@ -10,6 +10,7 @@ import {
   Search,
   Trash2,
   X,
+  RefreshCw,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -82,6 +83,8 @@ const EMPTY_FORM: CameraCreateInput = {
   direction: 'enter',
   is_active: true,
 }
+
+import { toast } from 'sonner'
 
 export default function CamerasPage() {
   const {
@@ -251,6 +254,32 @@ export default function CamerasPage() {
         )
       }
       await refetch()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleSync = async (camera: Camera) => {
+    if (!camera.is_active) {
+      toast.error("Kamera uzilgan. Oldin ulanishni tiklang.")
+      return
+    }
+    
+    setBusyId(camera.id)
+    toast.info("Sinxronizatsiya boshlandi. Bu bir oz vaqt olishi mumkin...")
+    
+    try {
+      const res = await camerasService.syncEmployees(camera.id)
+      if (res.success) {
+        toast.success(res.message)
+      }
+    } catch (err) {
+      console.error('Failed to sync employees', err)
+      if (axios.isAxiosError(err) && err.response?.data?.detail) {
+        toast.error(err.response.data.detail)
+      } else {
+        toast.error("Sinxronizatsiya qilishda xatolik yuz berdi")
+      }
     } finally {
       setBusyId(null)
     }
@@ -441,6 +470,20 @@ export default function CamerasPage() {
                             <TooltipContent>
                               {camera.is_active ? 'Uzish' : 'Ulash'}
                             </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                disabled={busyId === camera.id || !camera.is_active}
+                                onClick={() => handleSync(camera)}
+                                aria-label="Xodimlarni sinxronizatsiya qilish"
+                              >
+                                <RefreshCw className={`size-4 ${busyId === camera.id ? 'animate-spin' : ''}`} aria-hidden />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Sinxronlash</TooltipContent>
                           </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>

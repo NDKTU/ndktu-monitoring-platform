@@ -7,9 +7,13 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import uvicorn
 
 from app.modules.camera.tasks import close_open_events_at_midnight
+from app.modules.auth.init_rbac import init_rbac
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize RBAC
+    await init_rbac(app)
+    
     # Start active camera streams
     from app.modules.camera.stream import camera_manager
     await camera_manager.start_active_cameras()

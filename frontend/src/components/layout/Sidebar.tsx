@@ -32,6 +32,8 @@ const NAV_ITEMS = [
   },
   { to: '/tabel', label: 'Tabel', icon: Table2, end: false },
   { to: '/users', label: 'Foydalanuvchilar', icon: UserCog, end: false },
+  { to: '/roles', label: 'Rollar', icon: Briefcase, end: false },
+  { to: '/permissions', label: 'Huquqlar', icon: ContactRound, end: false },
 ]
 
 type SidebarProps = {
@@ -39,9 +41,15 @@ type SidebarProps = {
 }
 
 export function Sidebar({ onNavigate }: SidebarProps) {
+  const handleLogout = () => {
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    window.location.href = '/login'
+  }
+
   return (
-    <div className="flex h-full flex-col gap-6 bg-sidebar text-sidebar-foreground">
-      <div className="flex items-center gap-3 px-5 pt-6">
+    <div className="flex h-full flex-col gap-6 bg-sidebar text-sidebar-foreground overflow-y-auto">
+      <div className="flex items-center gap-3 px-5 pt-6 shrink-0">
         <img
           src="/logo.png"
           alt="NDKTU Monitor logosi"
@@ -78,7 +86,13 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         </ul>
       </nav>
 
-      <div className="px-5 pb-6">
+      <div className="px-5 pb-6 shrink-0">
+        <button 
+          onClick={handleLogout}
+          className="w-full text-left mb-4 flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors text-red-500 hover:bg-sidebar-accent/60"
+        >
+          Tizimdan chiqish
+        </button>
         <div className="rounded-md border border-sidebar-border bg-background/40 p-3 text-xs text-muted-foreground">
           Kirish nazorati va videokuzatuv tizimi.
         </div>

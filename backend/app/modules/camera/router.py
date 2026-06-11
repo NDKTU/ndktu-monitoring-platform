@@ -88,3 +88,10 @@ async def restart_camera(
     service: CameraService = Depends(get_camera_service)
 ):
     return await service.restart_camera(camera_id)
+
+@router.post("/{camera_id}/sync-employees")
+async def sync_employees_to_camera(
+    camera_id: int,
+    service: CameraService = Depends(get_camera_service)
+):
+    return await service.sync_employees(camera_id)

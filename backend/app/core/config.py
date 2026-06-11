@@ -26,6 +26,19 @@ class AppConfig(BaseModel):
     app: str
 
 
+class AuthConfig(BaseModel):
+    secret_key: str
+    access_token_expire_minutes: int
+    refresh_token_expire_minutes: int
+
+
+class AdminConfig(BaseModel):
+    login: str
+    password: str
+
+class HikvisionConfig(BaseModel):
+    enabled: bool = False
+
 
 class Settings(BaseSettings):
 
@@ -39,5 +52,8 @@ class Settings(BaseSettings):
 
     database: DatabaseConfig
     app: AppConfig
+    auth: AuthConfig
+    admin: AdminConfig
+    hikvision: HikvisionConfig = HikvisionConfig()
 
 settings = Settings()

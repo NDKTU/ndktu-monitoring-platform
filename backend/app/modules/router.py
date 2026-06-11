@@ -9,9 +9,15 @@ from app.modules.daily_attendance.router import router as daily_attendance_route
 from app.modules.tabel.router import router as tabel_router
 from app.modules.position.router import router as position_router
 from app.modules.department.router import router as department_router
+from app.modules.auth.router import router as auth_router
+from app.modules.role.router import router as role_router
+from app.modules.permission.router import router as permission_router
 
 router = APIRouter()
 
+router.include_router(auth_router)
+router.include_router(role_router)
+router.include_router(permission_router)
 router.include_router(camera_router)
 router.include_router(user_router)
 router.include_router(employee_router)

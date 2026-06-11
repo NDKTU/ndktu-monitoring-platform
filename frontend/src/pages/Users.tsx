@@ -1,5 +1,5 @@
 import { Pencil, Plus, Search, ShieldCheck, Trash2, User as UserIcon } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -48,6 +48,7 @@ import {
 import { usePagedList } from '@/hooks/usePagedList'
 import { trimFormStrings } from '@/lib/validation'
 import { usersService } from '@/services/users'
+import { rolesService } from '@/services/roles.service'
 import type { User, UserCreateInput, UserListParams } from '@/types/user'
 
 type StatusFilter = 'all' | 'true' | 'false'
@@ -56,7 +57,7 @@ const EMPTY_FORM: UserCreateInput = {
   username: '',
   password: '',
   is_active: true,
-  is_superuser: false,
+  role_id: null,
 }
 
 export default function UsersPage() {
@@ -77,30 +78,35 @@ export default function UsersPage() {
     initialParams: { page: 1, limit: 10 },
   })
 
+  const [roles, setRoles] = useState<any[]>([])
   const [search, setSearch] = useState('')
   const [active, setActive] = useState<StatusFilter>('all')
-  const [superuser, setSuperuser] = useState<StatusFilter>('all')
+  const [roleFilter, setRoleFilter] = useState<string>('all')
+
+  useEffect(() => {
+    rolesService.list().then(setRoles).catch(console.error)
+  }, [])
 
   const applyFilters = (
     next: Partial<{
       search: string
       active: StatusFilter
-      superuser: StatusFilter
+      role_id: string
     }>,
   ) => {
     if (next.search !== undefined) setSearch(next.search)
     if (next.active !== undefined) setActive(next.active)
-    if (next.superuser !== undefined) setSuperuser(next.superuser)
+    if (next.role_id !== undefined) setRoleFilter(next.role_id)
 
     setParams((prev) => {
       const s = next.search ?? search
       const a = next.active ?? active
-      const su = next.superuser ?? superuser
+      const r = next.role_id ?? roleFilter
       return {
         ...prev,
         search: s || undefined,
         is_active: a === 'all' ? undefined : a === 'true',
-        is_superuser: su === 'all' ? undefined : su === 'true',
+        role_id: r === 'all' ? undefined : Number(r),
       }
     })
   }
@@ -131,7 +137,7 @@ export default function UsersPage() {
       username: user.username,
       password: '',
       is_active: user.is_active,
-      is_superuser: user.is_superuser,
+      role_id: user.role_id,
     })
     setSubmitError(null)
     setDialogOpen(true)
@@ -226,9 +232,9 @@ export default function UsersPage() {
               </SelectContent>
             </Select>
             <Select
-              value={superuser}
+              value={roleFilter}
               onValueChange={(v) =>
-                applyFilters({ superuser: v as StatusFilter })
+                applyFilters({ role_id: v })
               }
             >
               <SelectTrigger
@@ -239,8 +245,9 @@ export default function UsersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Barcha rollar</SelectItem>
-                <SelectItem value="true">Admin</SelectItem>
-                <SelectItem value="false">Oddiy</SelectItem>
+                {roles.map(r => (
+                  <SelectItem key={r.id} value={r.id.toString()}>{r.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -295,17 +302,17 @@ export default function UsersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {user.is_superuser ? (
+                        {user.role ? (
                           <span className="inline-flex items-center gap-1.5 text-sm font-medium">
                             <ShieldCheck
                               className="size-4 text-emerald-500"
                               aria-hidden
                             />
-                            Admin
+                            {user.role.name}
                           </span>
                         ) : (
                           <span className="text-sm text-muted-foreground">
-                            Oddiy
+                            Rol biriktirilmagan
                           </span>
                         )}
                       </TableCell>
@@ -393,6 +400,25 @@ export default function UsersPage() {
                 />
               </div>
             )}
+            <div className="space-y-2">
+              <Label htmlFor="role_id">Rol</Label>
+              <Select
+                value={form.role_id ? form.role_id.toString() : 'none'}
+                onValueChange={(v) =>
+                  setForm({ ...form, role_id: v === 'none' ? null : Number(v) })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Rolni tanlang" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Rol biriktirilmagan</SelectItem>
+                  {roles.map(r => (
+                    <SelectItem key={r.id} value={r.id.toString()}>{r.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-2">
               <Checkbox
                 id="is_active"
@@ -403,18 +429,6 @@ export default function UsersPage() {
               />
               <Label htmlFor="is_active" className="cursor-pointer">
                 Faol
-              </Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="is_superuser"
-                checked={form.is_superuser ?? false}
-                onCheckedChange={(checked) =>
-                  setForm({ ...form, is_superuser: checked === true })
-                }
-              />
-              <Label htmlFor="is_superuser" className="cursor-pointer">
-                Admin huquqlarini berish
               </Label>
             </div>
 

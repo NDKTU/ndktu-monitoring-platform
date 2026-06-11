@@ -39,4 +39,8 @@ export const camerasService = {
   restart: async (id: number) => {
     await api.post(`/cameras/${id}/restart`)
   },
+  syncEmployees: async (id: number) => {
+    const { data } = await api.post<{ success: boolean; message: string }>(`/cameras/${id}/sync-employees`)
+    return data
+  },
 }

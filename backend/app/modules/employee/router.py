@@ -75,3 +75,11 @@ async def upload_employees_excel(
 ):
     return await service.upload_excel(file)
 
+
+@router.post("/{employee_id}/face")
+async def upload_employee_face(
+    employee_id: int,
+    file: UploadFile,
+    service: EmployeeService = Depends(get_employee_service),
+):
+    return await service.upload_face(employee_id, file)

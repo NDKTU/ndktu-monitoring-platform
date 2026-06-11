@@ -1,5 +1,6 @@
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.modules.auth.utils import get_password_hash
 
 from app.models.users.model import User
 from app.modules.user.schemas import (
@@ -16,14 +17,19 @@ class UserRepository:
         self.session = session
 
     async def create_user(self, user: UserCreateRequest) -> User:
-        db_user = User(**user.model_dump())
+        user_data = user.model_dump()
+        user_data["password"] = get_password_hash(user_data["password"])
+        db_user = User(**user_data)
         self.session.add(db_user)
         await self.session.commit()
         await self.session.refresh(db_user)
         return db_user
 
     async def list_users(self, request: UserListRequest) -> UserListResponse:
-        query = select(User)
+        from app.core.config import settings
+        from sqlalchemy.orm import selectinload
+
+        query = select(User).options(selectinload(User.role)).where(User.username != settings.admin.login)
 
         if request.search:
             search_term = f"%{request.search}%"
@@ -31,8 +37,8 @@ class UserRepository:
 
         if request.is_active is not None:
             query = query.where(User.is_active == request.is_active)
-        if request.is_superuser is not None:
-            query = query.where(User.is_superuser == request.is_superuser)
+        if request.role_id is not None:
+            query = query.where(User.role_id == request.role_id)
 
         total_stmt = select(func.count()).select_from(query.subquery())
         total = await self.session.execute(total_stmt)
@@ -59,6 +65,8 @@ class UserRepository:
             return None
 
         update_data = user.model_dump(exclude_unset=True)
+        if "password" in update_data:
+            update_data["password"] = get_password_hash(update_data["password"])
         for key, value in update_data.items():
             setattr(db_user, key, value)
 

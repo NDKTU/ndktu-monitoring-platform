@@ -93,3 +93,67 @@ class CameraService:
             direction=db_camera.direction.value,
         )
         return db_camera
+
+    async def sync_employees(self, camera_id: int) -> dict:
+        import asyncio
+        import os
+        import logging
+        from app.modules.employee.repository import EmployeeRepository
+        from app.modules.employee.hikvision_service import HikiUserService
+        from app.core.config import settings
+
+        db_camera = await self.repository.get_camera(camera_id)
+        if not db_camera:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
+
+        if not settings.hikvision.enabled:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Hikvision integration is disabled")
+
+        hiki_service = HikiUserService(
+            ip_address=db_camera.device_ip,
+            username=db_camera.login,
+            password=db_camera.password,
+            enabled=True
+        )
+
+        is_reachable = await hiki_service.check_connection()
+        if not is_reachable:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Camera {db_camera.device_ip} is unreachable"
+            )
+
+        employee_repo = EmployeeRepository(self.repository.session)
+        employees = await employee_repo.get_all_active_employees()
+
+        success_count = 0
+        error_count = 0
+
+        async def upload_employee(emp):
+            nonlocal success_count, error_count
+            user_name = f"{emp.first_name} {emp.last_name}"
+            created = await hiki_service.create_user(user_id=emp.jshir, user_name=user_name)
+            if created:
+                success_count += 1
+                # If there's a face image, we could upload it here.
+                # Assuming the face image is in uploads/faces/{emp.jshir}_*.jpg
+                # We can search for the first matching file:
+                faces_dir = "uploads/faces"
+                if os.path.exists(faces_dir):
+                    matching_files = [f for f in os.listdir(faces_dir) if f.startswith(f"{emp.jshir}_")]
+                    if matching_files:
+                        img_path = os.path.join(faces_dir, matching_files[0])
+                        await hiki_service.upload_face_image(user_id=emp.jshir, image_path=img_path)
+            else:
+                error_count += 1
+
+        # Process in batches or concurrently. Let's do batches to not overwhelm the camera
+        batch_size = 5
+        for i in range(0, len(employees), batch_size):
+            batch = employees[i:i+batch_size]
+            await asyncio.gather(*(upload_employee(emp) for emp in batch))
+
+        return {
+            "success": True,
+            "message": f"Sync complete. Successful: {success_count}, Failed: {error_count}"
+        }

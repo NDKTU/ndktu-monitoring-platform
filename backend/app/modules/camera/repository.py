@@ -58,6 +58,10 @@ class CameraRepository:
             limit=camera_list_request.limit,
         )
 
+    async def get_all_active_cameras(self) -> list[Cameras]:
+        result = await self.session.execute(select(Cameras).where(Cameras.is_active == True))
+        return list(result.scalars().all())
+
     async def get_camera(self, camera_id: int) -> Cameras | None:
         result = await self.session.execute(select(Cameras).where(Cameras.id == camera_id))
         return result.scalar()

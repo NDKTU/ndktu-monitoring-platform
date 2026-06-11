@@ -2,14 +2,15 @@ export type User = {
   id: number
   username: string
   is_active: boolean
-  is_superuser: boolean
+  role_id: number | null
+  role: { id: number; name: string } | null
 }
 
 export type UserCreateInput = {
   username: string
-  password: string
+  password?: string
   is_active?: boolean
-  is_superuser?: boolean
+  role_id?: number | null
 }
 
 export type UserListParams = {
@@ -17,7 +18,7 @@ export type UserListParams = {
   limit?: number
   search?: string
   is_active?: boolean
-  is_superuser?: boolean
+  role_id?: number
 }
 
 export type UserListResponse = {
