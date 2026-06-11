@@ -95,3 +95,15 @@ class EmployeeRepository:
         await self.session.delete(db_employee)
         await self.session.commit()
         return db_employee
+
+    async def get_employee_by_jshir(self, jshir: str) -> Employee | None:
+        result = await self.session.execute(
+            select(Employee)
+            .options(
+                joinedload(Employee.position),
+                joinedload(Employee.department).joinedload(Department.work_schedule),
+            )
+            .where(Employee.jshir == jshir)
+        )
+        return result.scalar_one_or_none()
+

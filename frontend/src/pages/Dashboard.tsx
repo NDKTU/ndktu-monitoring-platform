@@ -151,7 +151,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {countCards.map(({ label, value, icon: Icon }) => (
-          <Card key={label}>
+          <Card key={label} className="hover-premium">
             <CardContent className="flex items-center gap-4">
               <div className="grid size-10 place-items-center rounded-md bg-muted text-foreground">
                 <Icon className="size-5" aria-hidden />
@@ -163,7 +163,7 @@ export default function DashboardPage() {
                 {countsLoading ? (
                   <Skeleton className="mt-1 h-6 w-12" />
                 ) : (
-                  <div className="text-2xl font-semibold tabular-nums">
+                  <div className="text-2xl font-semibold font-outfit tabular-nums">
                     {value}
                   </div>
                 )}
@@ -175,7 +175,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {dailyCards.map(({ label, value, icon: Icon }) => (
-          <Card key={label}>
+          <Card key={label} className="hover-premium">
             <CardContent className="flex items-center gap-4">
               <div className="grid size-10 place-items-center rounded-md bg-muted text-foreground">
                 <Icon className="size-5" aria-hidden />
@@ -187,7 +187,7 @@ export default function DashboardPage() {
                 {dailyLoading ? (
                   <Skeleton className="mt-1 h-6 w-12" />
                 ) : (
-                  <div className="text-2xl font-semibold tabular-nums">
+                  <div className="text-2xl font-semibold font-outfit tabular-nums">
                     {value}
                   </div>
                 )}
@@ -199,8 +199,14 @@ export default function DashboardPage() {
 
       <Card>
         <CardContent className="flex h-72 flex-col items-center justify-center gap-3 border-dashed text-center text-muted-foreground">
-          <Activity className="size-8 opacity-60" aria-hidden />
-          <p className="text-sm">
+          <div className="relative">
+            <Activity className="size-8 text-primary/70 animate-pulse" aria-hidden />
+            <span className="absolute -right-0.5 -top-0.5 flex size-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500"></span>
+            </span>
+          </div>
+          <p className="text-sm font-medium">
             Real vaqt voqealar tasmasi bu yerda paydo bo‘ladi
           </p>
         </CardContent>

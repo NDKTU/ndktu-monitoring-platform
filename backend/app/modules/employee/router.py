@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db_helper import db_helper
@@ -10,7 +10,9 @@ from app.modules.employee.schemas import (
     EmployeeListRequest,
     EmployeeListResponse,
     EmployeeResponse,
+    EmployeeUploadResponse,
 )
+
 
 router = APIRouter(
     tags=["Employees"],
@@ -64,3 +66,12 @@ async def delete_employee(
     service: EmployeeService = Depends(get_employee_service),
 ):
     return await service.delete_employee(employee_id)
+
+
+@router.post("/upload-excel", response_model=EmployeeUploadResponse)
+async def upload_employees_excel(
+    file: UploadFile,
+    service: EmployeeService = Depends(get_employee_service),
+):
+    return await service.upload_excel(file)
+

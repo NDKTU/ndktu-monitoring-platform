@@ -73,3 +73,10 @@ class EmployeeListResponse(BaseModel):
     page: int
     limit: int
     employees: list[EmployeeResponse]
+
+
+class EmployeeUploadResponse(BaseModel):
+    success: bool
+    imported_count: int
+    errors: list[str] = []
+

@@ -1,6 +1,6 @@
 import { Menu } from 'lucide-react'
 import { useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { ThemeToggle } from '@/components/shared/ThemeToggle'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import {
 
 export function AppShell() {
   const [open, setOpen] = useState(false)
+  const location = useLocation()
 
   return (
     <div className="flex h-full w-full">
@@ -47,7 +48,7 @@ export function AppShell() {
         </header>
 
         <main className="flex-1 overflow-y-auto px-4 py-6 md:px-12 md:py-8 lg:px-16 xl:px-20">
-          <div className="w-full space-y-6">
+          <div key={location.pathname} className="w-full space-y-6 animate-page-fade">
             <Outlet />
           </div>
         </main>
