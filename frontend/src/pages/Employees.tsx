@@ -55,6 +55,7 @@ import {
 } from '@/components/ui/table'
 import { usePagedList } from '@/hooks/usePagedList'
 import { trimFormStrings } from '@/lib/validation'
+import { FEATURES } from '@/config/features'
 import { employeesService } from '@/services/employees'
 import { positionsService } from '@/services/positions'
 import { departmentsService } from '@/services/departments'
@@ -141,8 +142,12 @@ export default function EmployeesPage() {
   const [departments, setDepartments] = useState<Department[]>([])
 
   useEffect(() => {
-    if (dialogOpen) {
+    if (!dialogOpen) return
+    // Only fetch what the form actually renders (see @/config/features).
+    if (FEATURES.SHOW_POSITIONS) {
       positionsService.list({ limit: 100 }).then((res) => setPositions(res.positions)).catch(console.error)
+    }
+    if (FEATURES.SHOW_DEPARTMENTS) {
       departmentsService.list({ limit: 100 }).then((res) => setDepartments(res.departments)).catch(console.error)
     }
   }, [dialogOpen])
@@ -303,7 +308,7 @@ export default function EmployeesPage() {
                     <TableHead>Xodim</TableHead>
                     <TableHead>JSHIR</TableHead>
                     <TableHead>Pasport</TableHead>
-                    <TableHead>Stavka</TableHead>
+                    {FEATURES.SHOW_WORK_RATE ? <TableHead>Stavka</TableHead> : null}
                     <TableHead>Holati</TableHead>
                     <TableHead className="w-24 text-right">Amallar</TableHead>
                   </TableRow>
@@ -348,9 +353,11 @@ export default function EmployeesPage() {
                         <TableCell className="text-sm text-muted-foreground">
                           {employee.passport_series || '—'}
                         </TableCell>
-                        <TableCell className="font-mono text-sm tabular-nums">
-                          {employee.work_rate ?? 1.0}
-                        </TableCell>
+                        {FEATURES.SHOW_WORK_RATE ? (
+                          <TableCell className="font-mono text-sm tabular-nums">
+                            {employee.work_rate ?? 1.0}
+                          </TableCell>
+                        ) : null}
                         <TableCell>
                           {employee.in_work ? (
                             <Badge
@@ -489,81 +496,95 @@ export default function EmployeesPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="position">Lavozim</Label>
-                <Select
-                  value={form.position_id ? String(form.position_id) : 'none'}
-                  onValueChange={(val) =>
-                    setForm({
-                      ...form,
-                      position_id: val === 'none' ? null : Number(val),
-                    })
-                  }
-                >
-                  <SelectTrigger id="position">
-                    <SelectValue placeholder="Lavozimni tanlang" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Tanlanmagan</SelectItem>
-                    {positions.map((p) => (
-                      <SelectItem key={p.id} value={String(p.id)}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="department">Bo'lim</Label>
-                <Select
-                  value={form.department_id ? String(form.department_id) : 'none'}
-                  onValueChange={(val) =>
-                    setForm({
-                      ...form,
-                      department_id: val === 'none' ? null : Number(val),
-                    })
-                  }
-                >
-                  <SelectTrigger id="department">
-                    <SelectValue placeholder="Bo'limni tanlang" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Tanlanmagan</SelectItem>
-                    {departments.map((d) => (
-                      <SelectItem key={d.id} value={String(d.id)}>
-                        {d.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="work_rate">Ish stavkasi</Label>
-              <Select
-                value={String(form.work_rate ?? 1.0)}
-                onValueChange={(val) =>
-                  setForm({
-                    ...form,
-                    work_rate: Number(val),
-                  })
+            {FEATURES.SHOW_POSITIONS || FEATURES.SHOW_DEPARTMENTS ? (
+              <div
+                className={
+                  FEATURES.SHOW_POSITIONS && FEATURES.SHOW_DEPARTMENTS
+                    ? 'grid grid-cols-2 gap-3'
+                    : 'grid grid-cols-1 gap-3'
                 }
               >
-                <SelectTrigger id="work_rate">
-                  <SelectValue placeholder="Ish stavkasini tanlang" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0.25">0.25 (Chorak stavka)</SelectItem>
-                  <SelectItem value="0.5">0.5 (Yarim stavka)</SelectItem>
-                  <SelectItem value="0.75">0.75 (0.75 stavka)</SelectItem>
-                  <SelectItem value="1.0">1.0 (To'liq stavka)</SelectItem>
-                  <SelectItem value="1.5">1.5 (1.5 stavka)</SelectItem>
-                  <SelectItem value="2.0">2.0 (Ikki stavka)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                {FEATURES.SHOW_POSITIONS ? (
+                <div className="space-y-2">
+                  <Label htmlFor="position">Lavozim</Label>
+                  <Select
+                    value={form.position_id ? String(form.position_id) : 'none'}
+                    onValueChange={(val) =>
+                      setForm({
+                        ...form,
+                        position_id: val === 'none' ? null : Number(val),
+                      })
+                    }
+                  >
+                    <SelectTrigger id="position">
+                      <SelectValue placeholder="Lavozimni tanlang" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Tanlanmagan</SelectItem>
+                      {positions.map((p) => (
+                        <SelectItem key={p.id} value={String(p.id)}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                ) : null}
+                {FEATURES.SHOW_DEPARTMENTS ? (
+                <div className="space-y-2">
+                  <Label htmlFor="department">Bo'lim</Label>
+                  <Select
+                    value={form.department_id ? String(form.department_id) : 'none'}
+                    onValueChange={(val) =>
+                      setForm({
+                        ...form,
+                        department_id: val === 'none' ? null : Number(val),
+                      })
+                    }
+                  >
+                    <SelectTrigger id="department">
+                      <SelectValue placeholder="Bo'limni tanlang" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Tanlanmagan</SelectItem>
+                      {departments.map((d) => (
+                        <SelectItem key={d.id} value={String(d.id)}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {FEATURES.SHOW_WORK_RATE ? (
+              <div className="space-y-2">
+                <Label htmlFor="work_rate">Ish stavkasi</Label>
+                <Select
+                  value={String(form.work_rate ?? 1.0)}
+                  onValueChange={(val) =>
+                    setForm({
+                      ...form,
+                      work_rate: Number(val),
+                    })
+                  }
+                >
+                  <SelectTrigger id="work_rate">
+                    <SelectValue placeholder="Ish stavkasini tanlang" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0.25">0.25 (Chorak stavka)</SelectItem>
+                    <SelectItem value="0.5">0.5 (Yarim stavka)</SelectItem>
+                    <SelectItem value="0.75">0.75 (0.75 stavka)</SelectItem>
+                    <SelectItem value="1.0">1.0 (To'liq stavka)</SelectItem>
+                    <SelectItem value="1.5">1.5 (1.5 stavka)</SelectItem>
+                    <SelectItem value="2.0">2.0 (Ikki stavka)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
 
             {submitError ? (
               <p

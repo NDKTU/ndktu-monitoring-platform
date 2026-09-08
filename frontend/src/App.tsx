@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { AppShell } from '@/components/layout/AppShell'
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute'
+import { FEATURES } from '@/config/features'
 import LoginPage from '@/pages/Login'
 import CamerasPage from '@/pages/Cameras'
 import DailyAttendancePage from '@/pages/DailyAttendance'
@@ -29,8 +30,12 @@ export default function App() {
             <Route path="cameras" element={<CamerasPage />} />
             <Route path="employees" element={<EmployeesPage />} />
             <Route path="employees/:id" element={<EmployeeDetailPage />} />
-            <Route path="positions" element={<PositionsPage />} />
-            <Route path="departments" element={<DepartmentsPage />} />
+            {FEATURES.SHOW_POSITIONS ? (
+              <Route path="positions" element={<PositionsPage />} />
+            ) : null}
+            {FEATURES.SHOW_DEPARTMENTS ? (
+              <Route path="departments" element={<DepartmentsPage />} />
+            ) : null}
             <Route path="daily-attendance" element={<DailyAttendancePage />} />
             <Route path="work-schedules" element={<WorkSchedulesPage />} />
             <Route path="work-schedules/:id" element={<WorkScheduleDetailPage />} />

@@ -57,6 +57,7 @@ import type { Attendance } from '@/types/attendance'
 import type { DailyAttendance } from '@/types/dailyAttendance'
 import type { Employee } from '@/types/employee'
 import type { WorkSchedule } from '@/types/workSchedule'
+import { FEATURES } from '@/config/features'
 
 const LOCALE = 'uz-Latn-UZ'
 
@@ -196,24 +197,30 @@ export default function EmployeeDetailPage() {
                   {employee.passport_series || '—'}
                 </span>
               </div>
+              {FEATURES.SHOW_POSITIONS ? (
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">Lavozim</span>
                 <span className="font-medium">
                   {employee.position?.name || '—'}
                 </span>
               </div>
+              ) : null}
+              {FEATURES.SHOW_DEPARTMENTS ? (
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">Bo'lim</span>
                 <span className="font-medium">
                   {employee.department?.name || '—'}
                 </span>
               </div>
+              ) : null}
+              {FEATURES.SHOW_WORK_RATE ? (
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">Ish stavkasi</span>
                 <span className="font-medium">
                   {employee.work_rate ?? 1.0} stavka
                 </span>
               </div>
+              ) : null}
             </CardContent>
             <Separator />
             <CardContent className="pt-4">

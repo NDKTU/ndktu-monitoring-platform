@@ -39,6 +39,7 @@ import type {
   TabelRow,
 } from '@/types/tabel'
 import { TABEL_CODES } from '@/types/tabel'
+import { FEATURES } from '@/config/features'
 
 const MONTHS = [
   'Yanvar',
@@ -230,6 +231,7 @@ export default function TabelPage() {
               </SelectContent>
             </Select>
           </div>
+          {FEATURES.SHOW_DEPARTMENTS ? (
           <div className="space-y-2">
             <Label htmlFor="tabel-department">Bo'lim</Label>
             <Input
@@ -240,6 +242,7 @@ export default function TabelPage() {
               className="w-52"
             />
           </div>
+          ) : null}
           <div className="space-y-2">
             <Label htmlFor="tabel-search">Qidirish</Label>
             <Input
@@ -305,19 +308,30 @@ export default function TabelPage() {
               <TableBody>
                 {groupedRows.map((group) => (
                   <Fragment key={group.name}>
+                    {FEATURES.SHOW_DEPARTMENTS ? (
                     <TableRow className="bg-muted/40 hover:bg-muted/45 select-none font-semibold">
                       <TableCell colSpan={dayNumbers.length + 2} className="h-9 py-1 text-sm text-foreground">
                         {group.name}
                       </TableCell>
                     </TableRow>
+                    ) : null}
                     {group.rows.map((row) => (
                       <TableRow key={row.employee_id}>
                         <TableCell className="sticky left-0 z-10 bg-card">
                           <div className="font-medium">{row.full_name}</div>
                           <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                            {row.position ? <span>{row.position}</span> : null}
-                            {row.position && row.work_rate ? <span>•</span> : null}
-                            {row.work_rate ? <span>{row.work_rate} stavka</span> : null}
+                            {FEATURES.SHOW_POSITIONS && row.position ? (
+                              <span>{row.position}</span>
+                            ) : null}
+                            {FEATURES.SHOW_POSITIONS &&
+                            FEATURES.SHOW_WORK_RATE &&
+                            row.position &&
+                            row.work_rate ? (
+                              <span>•</span>
+                            ) : null}
+                            {FEATURES.SHOW_WORK_RATE && row.work_rate ? (
+                              <span>{row.work_rate} stavka</span>
+                            ) : null}
                           </div>
                         </TableCell>
                         {row.cells.map((cell) => (

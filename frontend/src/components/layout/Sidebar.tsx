@@ -11,13 +11,18 @@ import {
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/utils'
+import { FEATURES } from '@/config/features'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Boshqaruv', icon: LayoutDashboard, end: true },
   { to: '/cameras', label: 'Kameralar', icon: Camera, end: false },
   { to: '/employees', label: 'Xodimlar', icon: ContactRound, end: false },
-  { to: '/positions', label: 'Lavozimlar', icon: Briefcase, end: false },
-  { to: '/departments', label: 'Bo\'limlar', icon: Building2, end: false },
+  ...(FEATURES.SHOW_POSITIONS
+    ? [{ to: '/positions', label: 'Lavozimlar', icon: Briefcase, end: false }]
+    : []),
+  ...(FEATURES.SHOW_DEPARTMENTS
+    ? [{ to: '/departments', label: 'Bo\'limlar', icon: Building2, end: false }]
+    : []),
   {
     to: '/daily-attendance',
     label: 'Davomat',
