@@ -11,6 +11,12 @@ services:
       - "127.0.0.1:${port:-5432}:5432"   # localhost only — not public
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bekzod -d camera_base"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   backend:
     build: ./backend
@@ -20,9 +26,10 @@ services:
     environment:
       APP__DATABASE__HOST: database   # override localhost -> compose service name
     ports:
-      - "127.0.0.1:8000:8000"         # localhost only — reachable via nginx, not public
+      - "127.0.0.1:8010:8000"         # host 8000 is taken by another stack; container port unchanged
     depends_on:
-      - database
+      database:
+        condition: service_healthy
     volumes:
       - uploads_data:/backend/uploads # persist uploaded images
 
@@ -31,7 +38,7 @@ services:
     container_name: ndktu_frontend
     restart: unless-stopped
     environment:
-      VITE_API_URL: /api             # API goes through nginx on the same domain
+      VITE_API_URL: /api             # same-origin; Vite dev-server proxies /api -> backend:8000
     ports:
       - "127.0.0.1:5173:5173"         # localhost only — reachable via nginx, not public
     depends_on:

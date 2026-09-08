@@ -1,0 +1,16 @@
+# Host virtualenv — 220MB of host-specific paths; the image builds its own via `uv sync`
+.venv
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Secrets are injected at runtime via compose `env_file`, never baked into the image
+.env
+.env.*
+
+# Runtime data — persisted in the `uploads_data` volume, not the image
+uploads/
+
+.git
+.gitignore
+README.md
