@@ -32,8 +32,8 @@ export type WorkScheduleListResponse = {
 
 export type WorkScheduleEmployee = {
   id: number
-  first_name: string
-  last_name: string
+  first_name?: string | null
+  last_name?: string | null
   third_name: string | null
   full_name: string
 }

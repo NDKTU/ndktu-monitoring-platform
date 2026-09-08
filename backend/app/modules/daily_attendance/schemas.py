@@ -9,8 +9,8 @@ from app.models.daily_attendance.model import AttendanceStatus
 class EmployeeShortResponse(BaseModel):
     model_config = SettingsConfigDict(str_strip_whitespace=True, from_attributes=True)
     id: int
-    first_name: str
-    last_name: str
+    first_name: str | None
+    last_name: str | None
     third_name: str | None
     jshir: str
     full_name: str

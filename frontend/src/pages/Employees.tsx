@@ -163,8 +163,8 @@ export default function EmployeesPage() {
   const openEdit = (employee: Employee) => {
     setEditing(employee)
     setForm({
-      first_name: employee.first_name,
-      last_name: employee.last_name,
+      first_name: employee.first_name ?? '',
+      last_name: employee.last_name ?? '',
       third_name: employee.third_name ?? '',
       passport_series: employee.passport_series ?? '',
       jshir: employee.jshir,
@@ -180,14 +180,24 @@ export default function EmployeesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const cleaned = trimFormStrings(form)
+    // Only JSHIR is required. Blank optional fields must go over the wire as
+    // null, not '' — passport_series is UNIQUE, so a second empty string would
+    // collide, while multiple NULLs are fine.
+    const payload: EmployeeCreateInput = {
+      ...cleaned,
+      first_name: cleaned.first_name || null,
+      last_name: cleaned.last_name || null,
+      third_name: cleaned.third_name || null,
+      passport_series: cleaned.passport_series || null,
+    }
     try {
       setSubmitting(true)
       setSubmitError(null)
       setForm(cleaned)
       if (editing) {
-        await employeesService.update(editing.id, cleaned)
+        await employeesService.update(editing.id, payload)
       } else {
-        await employeesService.create(cleaned)
+        await employeesService.create(payload)
       }
       setDialogOpen(false)
       resetForm()
@@ -419,7 +429,6 @@ export default function EmployeesPage() {
                 <Label htmlFor="last_name">Familiya</Label>
                 <Input
                   id="last_name"
-                  required
                   value={form.last_name}
                   onChange={(e) =>
                     setForm({ ...form, last_name: e.target.value })
@@ -432,7 +441,6 @@ export default function EmployeesPage() {
                 <Label htmlFor="first_name">Ism</Label>
                 <Input
                   id="first_name"
-                  required
                   value={form.first_name}
                   onChange={(e) =>
                     setForm({ ...form, first_name: e.target.value })

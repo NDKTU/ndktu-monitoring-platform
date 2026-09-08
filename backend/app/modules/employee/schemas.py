@@ -6,8 +6,8 @@ from app.modules.department.schemas import DepartmentResponse
 
 class EmployeeCreateRequest(BaseModel):
     model_config = SettingsConfigDict(str_strip_whitespace=True)
-    first_name: str
-    last_name: str
+    first_name: str | None = None
+    last_name: str | None = None
     third_name: str | None = None
     passport_series: str | None = None
     jshir: str
@@ -35,8 +35,8 @@ class EmployeeUpdateRequest(BaseModel):
 class EmployeeResponse(BaseModel):
     model_config = SettingsConfigDict(str_strip_whitespace=True, from_attributes=True)
     id: int
-    first_name: str
-    last_name: str
+    first_name: str | None
+    last_name: str | None
     third_name: str | None
     passport_series: str | None
     jshir: str

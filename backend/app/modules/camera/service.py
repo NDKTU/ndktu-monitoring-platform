@@ -131,7 +131,7 @@ class CameraService:
 
         async def upload_employee(emp):
             nonlocal success_count, error_count
-            user_name = f"{emp.first_name} {emp.last_name}"
+            user_name = emp.display_name
             created = await hiki_service.create_user(user_id=emp.jshir, user_name=user_name)
             if created:
                 success_count += 1

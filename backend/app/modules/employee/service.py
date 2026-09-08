@@ -63,7 +63,7 @@ class EmployeeService:
     async def create_employee(self, employee: EmployeeCreateRequest) -> Employee:
         new_employee = await self.repository.create_employee(employee)
         # Sync with Hikvision
-        user_name = f"{new_employee.first_name} {new_employee.last_name}"
+        user_name = new_employee.display_name
         await self._sync_with_hikvision("create", user_id=new_employee.jshir, user_name=user_name)
         return new_employee
 
@@ -88,7 +88,7 @@ class EmployeeService:
             )
         
         # Sync with Hikvision
-        user_name = f"{updated.first_name} {updated.last_name}"
+        user_name = updated.display_name
         await self._sync_with_hikvision("modify", user_id=updated.jshir, user_name=user_name)
         
         return updated
@@ -165,13 +165,13 @@ class EmployeeService:
             elif normalized_col in ("department",):
                 field_mapping["department"] = col
 
-        required_fields = ["first_name", "last_name", "jshir"]
+        required_fields = ["jshir"]
         missing_fields = [f for f in required_fields if f not in field_mapping]
         if missing_fields:
             return EmployeeUploadResponse(
                 success=False,
                 imported_count=0,
-                errors=[f"Excel faylda majburiy ustunlar topilmadi. Muqobil ustun nomlari: Ism, Familiya, JShShIR (PINFL). Missing mappings for: {', '.join(missing_fields)}"]
+                errors=[f"Excel faylda majburiy JShShIR (PINFL) ustuni topilmadi. Missing mappings for: {', '.join(missing_fields)}"]
             )
 
         position_repo = PositionRepository(self.repository.session)
@@ -233,12 +233,18 @@ class EmployeeService:
             row_num = idx + 2
 
             try:
-                first_name = clean_val(row[field_mapping["first_name"]])
-                last_name = clean_val(row[field_mapping["last_name"]])
+                first_name = None
+                if "first_name" in field_mapping:
+                    first_name = clean_val(row[field_mapping["first_name"]])
+
+                last_name = None
+                if "last_name" in field_mapping:
+                    last_name = clean_val(row[field_mapping["last_name"]])
+
                 jshir = clean_val(row[field_mapping["jshir"]])
 
-                if not first_name or not last_name or not jshir:
-                    errors.append(f"{row_num}-qatorda xatolik: Ism, Familiya va JShShIR to'ldirilishi shart.")
+                if not jshir:
+                    errors.append(f"{row_num}-qatorda xatolik: JShShIR to'ldirilishi shart.")
                     continue
 
                 jshir = jshir.replace(" ", "").replace("-", "")
@@ -296,8 +302,10 @@ class EmployeeService:
                 existing = await self.repository.get_employee_by_jshir(jshir)
 
                 if existing:
-                    existing.first_name = first_name
-                    existing.last_name = last_name
+                    if "first_name" in field_mapping:
+                        existing.first_name = first_name
+                    if "last_name" in field_mapping:
+                        existing.last_name = last_name
                     existing.third_name = third_name
                     existing.passport_series = passport_series
                     existing.in_work = in_work
@@ -325,7 +333,7 @@ class EmployeeService:
 
                 # Sync with Hikvision (non-blocking errors)
                 try:
-                    user_name = f"{first_name} {last_name}"
+                    user_name = " ".join(p for p in (last_name, first_name, third_name) if p) or jshir
                     await self._sync_with_hikvision("create", user_id=jshir, user_name=user_name)
                 except Exception as hik_err:
                     import logging

@@ -14,8 +14,8 @@ export type DepartmentShort = {
 
 export type Employee = {
   id: number
-  first_name: string
-  last_name: string
+  first_name?: string | null
+  last_name?: string | null
   third_name?: string | null
   passport_series?: string | null
   jshir: string
@@ -31,16 +31,16 @@ export type Employee = {
 
 export type EmployeeShortResponse = {
   id: number
-  first_name: string
-  last_name: string
+  first_name?: string | null
+  last_name?: string | null
   third_name?: string | null
   jshir: string
   full_name: string
 }
 
 export type EmployeeCreateInput = {
-  first_name: string
-  last_name: string
+  first_name?: string | null
+  last_name?: string | null
   third_name?: string | null
   passport_series?: string | null
   jshir: string

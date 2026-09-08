@@ -16,8 +16,8 @@ class Employee(Base, IdIntPk, TimestampMixin):
 
     __tablename__ = "employees"
 
-    first_name: Mapped[str] = mapped_column(String(50), nullable=False)
-    last_name: Mapped[str] = mapped_column(String(50), nullable=False)
+    first_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
     third_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
     passport_series: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True)
     jshir: Mapped[str] = mapped_column(String(14), unique=True, nullable=False)
@@ -49,3 +49,8 @@ class Employee(Base, IdIntPk, TimestampMixin):
     def full_name(self) -> str:
         parts = [self.last_name, self.first_name, self.third_name]
         return " ".join(p for p in parts if p)
+
+    @property
+    def display_name(self) -> str:
+        """Name for external systems (Hikvision); falls back to JSHIR when unnamed."""
+        return self.full_name or self.jshir

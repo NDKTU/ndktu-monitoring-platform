@@ -55,8 +55,8 @@ class WorkScheduleEmployeesResult(BaseModel):
 class WorkScheduleEmployeeItem(BaseModel):
     model_config = SettingsConfigDict(str_strip_whitespace=True, from_attributes=True)
     id: int
-    first_name: str
-    last_name: str
+    first_name: str | None
+    last_name: str | None
     third_name: str | None = None
 
     @computed_field
