@@ -31,8 +31,14 @@ class TabelService:
             if date_type(request.year, request.month, d).weekday() < 5
         )
 
-        employees = await self.repository.get_employees(
+        total = await self.repository.count_employees(
             request.department, request.search
+        )
+        employees = await self.repository.get_employees(
+            request.department,
+            request.search,
+            offset=(request.page - 1) * request.limit,
+            limit=request.limit,
         )
         employee_ids = [e.id for e in employees]
 
@@ -98,6 +104,9 @@ class TabelService:
             month=request.month,
             days_in_month=days_in_month,
             working_days=working_days,
+            total=total,
+            page=request.page,
+            limit=request.limit,
             rows=rows,
         )
 

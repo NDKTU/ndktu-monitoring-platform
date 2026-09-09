@@ -13,6 +13,10 @@ class TabelMonthRequest(BaseModel):
     month: int = Field(ge=1, le=12)
     department: str | None = None
     search: str | None = None
+    # A month for every employee is ~900 KB of JSON and 47k DOM nodes in the
+    # browser; the page renders one screenful at a time like every other table.
+    page: int = Field(default=1, ge=1)
+    limit: int = Field(default=25, ge=1, le=200)
 
 
 class TabelCell(BaseModel):
@@ -36,6 +40,9 @@ class TabelMonthResponse(BaseModel):
     month: int
     days_in_month: int
     working_days: int
+    total: int
+    page: int
+    limit: int
     rows: list[TabelRow]
 
 

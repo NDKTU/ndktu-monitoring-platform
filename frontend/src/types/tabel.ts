@@ -57,6 +57,9 @@ export type TabelMonthResponse = {
   month: number
   days_in_month: number
   working_days: number
+  total: number
+  page: number
+  limit: number
   rows: TabelRow[]
 }
 
@@ -65,6 +68,8 @@ export type TabelMonthParams = {
   month: number
   department?: string
   search?: string
+  page?: number
+  limit?: number
 }
 
 export type TabelEntryUpsertInput = {

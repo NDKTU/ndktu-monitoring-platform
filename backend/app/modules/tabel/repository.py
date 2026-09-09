@@ -16,15 +16,11 @@ class TabelRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def get_employees(
-        self, department: str | None, search: str | None
-    ) -> list[Employee]:
-        query = select(Employee).options(
-            joinedload(Employee.position),
-            joinedload(Employee.department),
-        )
+    def _employee_filters(self, query, department: str | None, search: str | None):
         if department:
-            query = query.join(Employee.department).where(Department.name.ilike(f"%{department}%"))
+            query = query.join(Employee.department).where(
+                Department.name.ilike(f"%{department}%")
+            )
         if search:
             term = f"%{search}%"
             query = query.where(
@@ -35,7 +31,29 @@ class TabelRepository:
                     Employee.jshir.ilike(term),
                 )
             )
-        query = query.order_by(Employee.last_name, Employee.first_name)
+        return query
+
+    async def count_employees(self, department: str | None, search: str | None) -> int:
+        query = self._employee_filters(
+            select(func.count()).select_from(Employee), department, search
+        )
+        return int(await self.session.scalar(query) or 0)
+
+    async def get_employees(
+        self,
+        department: str | None,
+        search: str | None,
+        offset: int = 0,
+        limit: int | None = None,
+    ) -> list[Employee]:
+        query = select(Employee).options(
+            joinedload(Employee.position),
+            joinedload(Employee.department),
+        )
+        query = self._employee_filters(query, department, search)
+        query = query.order_by(Employee.last_name, Employee.first_name, Employee.id)
+        if limit is not None:
+            query = query.offset(offset).limit(limit)
         result = await self.session.execute(query)
         return list(result.scalars().all())
 

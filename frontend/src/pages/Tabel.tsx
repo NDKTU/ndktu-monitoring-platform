@@ -31,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Pagination } from '@/components/shared/Pagination'
 import { cn } from '@/lib/utils'
 import { tabelService } from '@/services/tabel'
 import type {
@@ -90,6 +91,9 @@ export default function TabelPage() {
   const [department, setDepartment] = useState('')
   const [search, setSearch] = useState('')
 
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(25)
+
   const [data, setData] = useState<TabelMonthResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -106,6 +110,8 @@ export default function TabelPage() {
         month,
         department: department.trim() || undefined,
         search: search.trim() || undefined,
+        page,
+        limit,
       })
       setData(res)
     } catch (err) {
@@ -113,6 +119,11 @@ export default function TabelPage() {
     } finally {
       setLoading(false)
     }
+  }, [year, month, department, search, page, limit])
+
+  // A new filter or month invalidates the current page number.
+  useEffect(() => {
+    setPage(1)
   }, [year, month, department, search])
 
   useEffect(() => {
@@ -364,6 +375,16 @@ export default function TabelPage() {
             </Table>
           </ScrollableTable>
         )}
+        {data && !loading && !error ? (
+          <Pagination
+            page={data.page}
+            limit={data.limit}
+            total={data.total}
+            onPageChange={setPage}
+            onLimitChange={setLimit}
+            limitOptions={[10, 25, 50, 100]}
+          />
+        ) : null}
       </Card>
 
       <Card>
