@@ -28,6 +28,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+
+# The edge proxy in front of this deployment truncates any single response over
+# ~104 KiB. A month of tabel data is ~900 KB of JSON, which arrived cut off and
+# unparseable. Compressed it is a few tens of KB, well inside the limit.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 app.add_middleware(
     CORSMiddleware,
