@@ -46,7 +46,8 @@ from app.modules.attendance.status_service import apply_enter, apply_exit
 
 LOCAL_TZ = timezone(timedelta(hours=5))
 RECOGNITION_MINOR = 75
-PAGE = 100
+# The terminals cap a page at 30 regardless of what is asked for.
+PAGE = 30
 
 
 class _Rollback(Exception):
@@ -84,9 +85,13 @@ async def read_events(
                     "endTime": end,
                 }
             }
-            response = await client.post(url, json=body)
-            response.raise_for_status()
-            block = json.loads(response.text)["AcsEvent"]
+            try:
+                response = await client.post(url, json=body)
+                response.raise_for_status()
+                block = json.loads(response.text)["AcsEvent"]
+            except Exception:  # noqa: BLE001
+                # Keep whatever pages already came back rather than losing the device.
+                break
             rows = block.get("InfoList", []) or []
             for row in rows:
                 when = _naive(row.get("time", ""))
@@ -101,7 +106,9 @@ async def read_events(
                 )
             if block.get("responseStatusStrg") != "MORE" or not rows:
                 break
-            position += PAGE
+            # Advance by what was actually returned, not by what was requested:
+            # overshooting the cursor makes the device reject the next query.
+            position += len(rows)
     return out
 
 
