@@ -36,11 +36,13 @@ services:
       - ./backend/uploads:/backend/uploads
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      target: prod                       # static build behind nginx, not `vite dev`
+      args:
+        VITE_API_URL: /api               # baked into the bundle at build time
     container_name: ndktu_frontend
     restart: unless-stopped
-    environment:
-      VITE_API_URL: /api                   # same-origin; nginx proxies /api -> backend
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-5173}:5173"  # localhost only — reachable via nginx
     depends_on:

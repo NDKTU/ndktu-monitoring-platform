@@ -436,7 +436,7 @@ export default function EmployeesPage() {
                 <Label htmlFor="last_name">Familiya</Label>
                 <Input
                   id="last_name"
-                  value={form.last_name}
+                  value={form.last_name ?? ''}
                   onChange={(e) =>
                     setForm({ ...form, last_name: e.target.value })
                   }
@@ -448,7 +448,7 @@ export default function EmployeesPage() {
                 <Label htmlFor="first_name">Ism</Label>
                 <Input
                   id="first_name"
-                  value={form.first_name}
+                  value={form.first_name ?? ''}
                   onChange={(e) =>
                     setForm({ ...form, first_name: e.target.value })
                   }
