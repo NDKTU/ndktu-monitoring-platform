@@ -48,6 +48,7 @@ LOCAL_TZ = timezone(timedelta(hours=5))
 RECOGNITION_MINOR = 75
 # The terminals cap a page at 30 regardless of what is asked for.
 PAGE = 30
+MAX_RETRIES = 5
 
 
 class _Rollback(Exception):
@@ -69,10 +70,18 @@ async def read_events(
 ) -> list[tuple[datetime, str, str]]:
     """Return [(time, employeeNo, name)] of identifications on one terminal."""
     url = f"http://{ip}/ISAPI/AccessControl/AcsEvent?format=json"
-    auth = httpx.DigestAuth(login, password)
     out: list[tuple[datetime, str, str]] = []
     position = 0
-    async with httpx.AsyncClient(auth=auth, timeout=60) as client:
+    client: httpx.AsyncClient | None = None
+    attempts = 0
+
+    def _fresh() -> httpx.AsyncClient:
+        # The device expires its digest nonce after roughly eighty requests and then
+        # answers 401; a new client renegotiates instead of stalling the read.
+        return httpx.AsyncClient(auth=httpx.DigestAuth(login, password), timeout=60)
+
+    try:
+        client = _fresh()
         while True:
             body = {
                 "AcsEventCond": {
@@ -89,9 +98,16 @@ async def read_events(
                 response = await client.post(url, json=body)
                 response.raise_for_status()
                 block = json.loads(response.text)["AcsEvent"]
+                attempts = 0
             except Exception:  # noqa: BLE001
-                # Keep whatever pages already came back rather than losing the device.
-                break
+                attempts += 1
+                if attempts > MAX_RETRIES:
+                    break
+                await client.aclose()
+                await asyncio.sleep(1.0)
+                client = _fresh()
+                continue
+
             rows = block.get("InfoList", []) or []
             for row in rows:
                 when = _naive(row.get("time", ""))
@@ -109,6 +125,9 @@ async def read_events(
             # Advance by what was actually returned, not by what was requested:
             # overshooting the cursor makes the device reject the next query.
             position += len(rows)
+    finally:
+        if client is not None:
+            await client.aclose()
     return out
 
 

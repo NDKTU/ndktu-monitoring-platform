@@ -133,6 +133,16 @@ async def apply_exit(
     open_result = await session.execute(open_stmt)
     open_segment = open_result.scalar_one_or_none()
 
+    # An exit stamped earlier than the entry it would close is not that person's
+    # exit: events can reach us out of order, and pairing them yields negative
+    # working_hours. Record it as an exit with no entry, which is already modelled.
+    if (
+        open_segment is not None
+        and open_segment.enter_time is not None
+        and event_time < open_segment.enter_time
+    ):
+        open_segment = None
+
     if open_segment is not None and open_segment.enter_time is not None:
         open_segment.exit_time = event_time
         open_segment.exit_image_path = image_path
