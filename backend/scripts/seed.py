@@ -24,6 +24,7 @@ from app.models.attendance.model import Attendance
 from app.models.cameras.model import Cameras, DirectionType
 from app.models.daily_attendance.model import AttendanceStatus, DailyAttendance
 from app.models.employees.model import Employee
+from app.models.tabel_entries.model import TabelCode, TabelEntry
 from app.models.users.model import User
 from app.models.work_schedules.model import WorkSchedule
 from app.models.positions.model import Position
@@ -436,6 +437,60 @@ async def seed_attendance(
     )
 
 
+async def seed_tabel_entries(
+    session: AsyncSession, employees: list[Employee]
+) -> None:
+    today = date.today()
+    window = [today - timedelta(days=d) for d in range(1, HISTORY_DAYS + 1)]
+
+    emp_ids = [e.id for e in employees]
+    existing = await session.execute(
+        select(TabelEntry.employee_id, TabelEntry.date).where(
+            TabelEntry.employee_id.in_(emp_ids),
+            TabelEntry.date.in_(window),
+        )
+    )
+    have_pairs = {(eid, d) for eid, d in existing.all()}
+
+    # ~5% of (employee, weekday) cells get an override, deterministic by hash.
+    override_codes = [
+        TabelCode.R,    # sick leave
+        TabelCode.RP,   # vacation
+        TabelCode.V,    # admin-approved absence
+        TabelCode.G,    # study leave
+        TabelCode.F,    # truancy
+    ]
+
+    to_add: list[TabelEntry] = []
+    for emp in employees:
+        for d in window:
+            if d.weekday() >= 5:
+                continue
+            if (emp.id, d) in have_pairs:
+                continue
+            p = _stable_pct(emp.id, d)
+            # Use a different bucket than daily-attendance to avoid clobbering it
+            # everywhere — only fire on a narrow range.
+            if 50 <= p < 55:
+                code = override_codes[p % len(override_codes)]
+                to_add.append(
+                    TabelEntry(
+                        employee_id=emp.id,
+                        date=d,
+                        code=code,
+                        comment=None,
+                    )
+                )
+
+    if to_add:
+        # Commit in batches to keep memory bounded.
+        for i in range(0, len(to_add), BATCH_SIZE):
+            session.add_all(to_add[i : i + BATCH_SIZE])
+            await session.commit()
+
+    print(f"[tabel]     added={len(to_add)} kept={len(have_pairs)}")
+
+
 async def main() -> None:
     async for session in db_helper.session_getter():
         await seed_users(session)
@@ -451,6 +506,7 @@ async def main() -> None:
             )
 
         await seed_attendance(session, employees, enter_ids, exit_ids)
+        await seed_tabel_entries(session, employees)
         print("Done.")
         break
 

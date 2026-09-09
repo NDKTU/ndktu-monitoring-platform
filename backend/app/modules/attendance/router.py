@@ -9,6 +9,7 @@ from app.modules.attendance.schemas import (
     AttendanceListResponse,
     AttendanceResponse,
 )
+from app.modules.auth.dependencies import PermissionChecker
 
 router = APIRouter(
     tags=["Attendance"],
@@ -23,7 +24,7 @@ def get_attendance_service(
     return AttendanceService(repository)
 
 
-@router.get("/list", response_model=AttendanceListResponse)
+@router.get("/list", response_model=AttendanceListResponse, dependencies=[Depends(PermissionChecker("attendance:list"))])
 async def list_events(
     request: AttendanceListRequest = Depends(),
     service: AttendanceService = Depends(get_attendance_service),
@@ -31,7 +32,7 @@ async def list_events(
     return await service.list_events(request)
 
 
-@router.get("/{event_id}", response_model=AttendanceResponse)
+@router.get("/{event_id}", response_model=AttendanceResponse, dependencies=[Depends(PermissionChecker("attendance:get"))])
 async def get_event(
     event_id: int,
     service: AttendanceService = Depends(get_attendance_service),

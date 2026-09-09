@@ -219,3 +219,14 @@ __marimo__/
 .streamlit/secrets.toml
 
 backend/uploads
+# Local docker-compose tweaks (ports, bind mounts) — must not reach the server
+docker-compose.override.yml
+
+# Docker volume archives / restored copies — DB dumps and personal data, 1.4 GB
+volumes/
+docker-volumes-*.tar.gz
+backend/.env.bak.*
+
+# Local tooling artefacts
+.playwright-mcp/
+dashboard.png

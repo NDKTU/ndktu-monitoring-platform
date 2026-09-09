@@ -9,6 +9,7 @@ from app.modules.daily_attendance.schemas import (
     DailyAttendanceListResponse,
     DailyAttendanceResponse,
 )
+from app.modules.auth.dependencies import PermissionChecker
 
 router = APIRouter(
     tags=["Daily Attendance"],
@@ -23,7 +24,7 @@ def get_daily_service(
     return DailyAttendanceService(repository)
 
 
-@router.get("/list", response_model=DailyAttendanceListResponse)
+@router.get("/list", response_model=DailyAttendanceListResponse, dependencies=[Depends(PermissionChecker("daily_attendance:list"))])
 async def list_items(
     request: DailyAttendanceListRequest = Depends(),
     service: DailyAttendanceService = Depends(get_daily_service),
@@ -31,7 +32,7 @@ async def list_items(
     return await service.list_items(request)
 
 
-@router.get("/{item_id}", response_model=DailyAttendanceResponse)
+@router.get("/{item_id}", response_model=DailyAttendanceResponse, dependencies=[Depends(PermissionChecker("daily_attendance:get"))])
 async def get_item(
     item_id: int,
     service: DailyAttendanceService = Depends(get_daily_service),

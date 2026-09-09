@@ -11,6 +11,7 @@ from app.modules.position.schemas import (
     PositionListResponse,
     PositionResponse,
 )
+from app.modules.auth.dependencies import PermissionChecker
 
 router = APIRouter(
     tags=["Positions"],
@@ -25,7 +26,7 @@ def get_position_service(
     return PositionService(repository)
 
 
-@router.post("/", response_model=PositionResponse)
+@router.post("/", response_model=PositionResponse, dependencies=[Depends(PermissionChecker("positions:create"))])
 async def create_position(
     position: PositionCreateRequest,
     service: PositionService = Depends(get_position_service),
@@ -33,7 +34,7 @@ async def create_position(
     return await service.create_position(position)
 
 
-@router.get("/list", response_model=PositionListResponse)
+@router.get("/list", response_model=PositionListResponse, dependencies=[Depends(PermissionChecker("positions:list"))])
 async def list_positions(
     request: PositionListRequest = Depends(),
     service: PositionService = Depends(get_position_service),
@@ -41,7 +42,7 @@ async def list_positions(
     return await service.list_positions(request)
 
 
-@router.get("/{position_id}", response_model=PositionResponse)
+@router.get("/{position_id}", response_model=PositionResponse, dependencies=[Depends(PermissionChecker("positions:get"))])
 async def get_position(
     position_id: int,
     service: PositionService = Depends(get_position_service),
@@ -49,7 +50,7 @@ async def get_position(
     return await service.get_position(position_id)
 
 
-@router.put("/{position_id}", response_model=PositionResponse)
+@router.put("/{position_id}", response_model=PositionResponse, dependencies=[Depends(PermissionChecker("positions:update"))])
 async def update_position(
     position_id: int,
     position: PositionUpdateRequest,
@@ -58,7 +59,7 @@ async def update_position(
     return await service.update_position(position_id, position)
 
 
-@router.delete("/{position_id}", response_model=PositionResponse)
+@router.delete("/{position_id}", response_model=PositionResponse, dependencies=[Depends(PermissionChecker("positions:delete"))])
 async def delete_position(
     position_id: int,
     service: PositionService = Depends(get_position_service),

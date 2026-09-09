@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: bekzod
       POSTGRES_PASSWORD: qwerty
     ports:
-      - "127.0.0.1:${port:-5432}:5432"   # localhost only — not public
+      - "127.0.0.1:${DB_PORT:-5432}:5432"   # localhost only — not public
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,26 +24,27 @@ services:
     restart: unless-stopped
     env_file: ./backend/.env
     environment:
-      APP__DATABASE__HOST: database   # override localhost -> compose service name
+      APP__DATABASE__HOST: database        # override localhost -> compose service name
     ports:
-      - "127.0.0.1:8010:8000"         # host 8000 is taken by another stack; container port unchanged
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"   # localhost only — reachable via nginx
     depends_on:
       database:
         condition: service_healthy
     volumes:
-      - uploads_data:/backend/uploads # persist uploaded images
+      # Captured frames live in the project tree, not in a Docker volume, so they can
+      # be read, backed up and served straight from backend/uploads (git-ignored).
+      - ./backend/uploads:/backend/uploads
 
   frontend:
     build: ./frontend
     container_name: ndktu_frontend
     restart: unless-stopped
     environment:
-      VITE_API_URL: /api             # same-origin; Vite dev-server proxies /api -> backend:8000
+      VITE_API_URL: /api                   # same-origin; nginx proxies /api -> backend
     ports:
-      - "127.0.0.1:5173:5173"         # localhost only — reachable via nginx, not public
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:5173"  # localhost only — reachable via nginx
     depends_on:
       - backend
 
 volumes:
   postgres_data:
-  uploads_data:

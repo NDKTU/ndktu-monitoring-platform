@@ -12,6 +12,7 @@ from app.modules.employee.schemas import (
     EmployeeResponse,
     EmployeeUploadResponse,
 )
+from app.modules.auth.dependencies import PermissionChecker
 
 
 router = APIRouter(
@@ -27,7 +28,7 @@ def get_employee_service(
     return EmployeeService(repository)
 
 
-@router.post("/", response_model=EmployeeResponse)
+@router.post("/", response_model=EmployeeResponse, dependencies=[Depends(PermissionChecker("employees:create"))])
 async def create_employee(
     employee: EmployeeCreateRequest,
     service: EmployeeService = Depends(get_employee_service),
@@ -35,7 +36,7 @@ async def create_employee(
     return await service.create_employee(employee)
 
 
-@router.get("/list", response_model=EmployeeListResponse)
+@router.get("/list", response_model=EmployeeListResponse, dependencies=[Depends(PermissionChecker("employees:list"))])
 async def list_employees(
     request: EmployeeListRequest = Depends(),
     service: EmployeeService = Depends(get_employee_service),
@@ -43,7 +44,7 @@ async def list_employees(
     return await service.list_employees(request)
 
 
-@router.get("/{employee_id}", response_model=EmployeeResponse)
+@router.get("/{employee_id}", response_model=EmployeeResponse, dependencies=[Depends(PermissionChecker("employees:get"))])
 async def get_employee(
     employee_id: int,
     service: EmployeeService = Depends(get_employee_service),
@@ -51,7 +52,7 @@ async def get_employee(
     return await service.get_employee(employee_id)
 
 
-@router.put("/{employee_id}", response_model=EmployeeResponse)
+@router.put("/{employee_id}", response_model=EmployeeResponse, dependencies=[Depends(PermissionChecker("employees:update"))])
 async def update_employee(
     employee_id: int,
     employee: EmployeeUpdateRequest,
@@ -60,7 +61,7 @@ async def update_employee(
     return await service.update_employee(employee_id, employee)
 
 
-@router.delete("/{employee_id}", response_model=EmployeeResponse)
+@router.delete("/{employee_id}", response_model=EmployeeResponse, dependencies=[Depends(PermissionChecker("employees:delete"))])
 async def delete_employee(
     employee_id: int,
     service: EmployeeService = Depends(get_employee_service),
@@ -68,7 +69,7 @@ async def delete_employee(
     return await service.delete_employee(employee_id)
 
 
-@router.post("/upload-excel", response_model=EmployeeUploadResponse)
+@router.post("/upload-excel", response_model=EmployeeUploadResponse, dependencies=[Depends(PermissionChecker("employees:upload_excel"))])
 async def upload_employees_excel(
     file: UploadFile,
     service: EmployeeService = Depends(get_employee_service),
@@ -76,7 +77,7 @@ async def upload_employees_excel(
     return await service.upload_excel(file)
 
 
-@router.post("/{employee_id}/face")
+@router.post("/{employee_id}/face", dependencies=[Depends(PermissionChecker("employees:face"))])
 async def upload_employee_face(
     employee_id: int,
     file: UploadFile,

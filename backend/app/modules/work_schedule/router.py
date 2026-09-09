@@ -15,6 +15,7 @@ from app.modules.work_schedule.schemas import (
     WorkScheduleResponse,
     WorkScheduleUpdateRequest,
 )
+from app.modules.auth.dependencies import PermissionChecker
 
 router = APIRouter(
     tags=["Work Schedules"],
@@ -29,7 +30,7 @@ def get_schedule_service(
     return WorkScheduleService(repository)
 
 
-@router.post("/", response_model=WorkScheduleResponse)
+@router.post("/", response_model=WorkScheduleResponse, dependencies=[Depends(PermissionChecker("work_schedules:create"))])
 async def create_schedule(
     schedule: WorkScheduleCreateRequest,
     service: WorkScheduleService = Depends(get_schedule_service),
@@ -37,7 +38,7 @@ async def create_schedule(
     return await service.create_schedule(schedule)
 
 
-@router.get("/list", response_model=WorkScheduleListResponse)
+@router.get("/list", response_model=WorkScheduleListResponse, dependencies=[Depends(PermissionChecker("work_schedules:list"))])
 async def list_schedules(
     request: WorkScheduleListRequest = Depends(),
     service: WorkScheduleService = Depends(get_schedule_service),
@@ -45,7 +46,7 @@ async def list_schedules(
     return await service.list_schedules(request)
 
 
-@router.get("/{schedule_id}", response_model=WorkScheduleResponse)
+@router.get("/{schedule_id}", response_model=WorkScheduleResponse, dependencies=[Depends(PermissionChecker("work_schedules:get"))])
 async def get_schedule(
     schedule_id: int,
     service: WorkScheduleService = Depends(get_schedule_service),
@@ -53,7 +54,7 @@ async def get_schedule(
     return await service.get_schedule(schedule_id)
 
 
-@router.put("/{schedule_id}", response_model=WorkScheduleResponse)
+@router.put("/{schedule_id}", response_model=WorkScheduleResponse, dependencies=[Depends(PermissionChecker("work_schedules:update"))])
 async def update_schedule(
     schedule_id: int,
     schedule: WorkScheduleUpdateRequest,
@@ -62,7 +63,7 @@ async def update_schedule(
     return await service.update_schedule(schedule_id, schedule)
 
 
-@router.delete("/{schedule_id}", response_model=WorkScheduleResponse)
+@router.delete("/{schedule_id}", response_model=WorkScheduleResponse, dependencies=[Depends(PermissionChecker("work_schedules:delete"))])
 async def delete_schedule(
     schedule_id: int,
     service: WorkScheduleService = Depends(get_schedule_service),
@@ -72,7 +73,7 @@ async def delete_schedule(
 
 @router.get(
     "/{schedule_id}/employees", response_model=WorkScheduleEmployeesListResponse
-)
+, dependencies=[Depends(PermissionChecker("work_schedules:list_employees"))])
 async def list_schedule_employees(
     schedule_id: int,
     request: WorkScheduleEmployeesListRequest = Depends(),
@@ -83,7 +84,7 @@ async def list_schedule_employees(
 
 @router.post(
     "/{schedule_id}/employees", response_model=WorkScheduleEmployeesResult
-)
+, dependencies=[Depends(PermissionChecker("work_schedules:assign_employees"))])
 async def assign_employees(
     schedule_id: int,
     payload: WorkScheduleEmployeesRequest,
@@ -94,7 +95,7 @@ async def assign_employees(
 
 @router.delete(
     "/{schedule_id}/employees", response_model=WorkScheduleEmployeesResult
-)
+, dependencies=[Depends(PermissionChecker("work_schedules:remove_employees"))])
 async def unassign_employees(
     schedule_id: int,
     payload: WorkScheduleEmployeesRequest,

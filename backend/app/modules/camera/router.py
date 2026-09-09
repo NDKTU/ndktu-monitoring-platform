@@ -11,6 +11,7 @@ from app.modules.camera.schemas import (
     CameraListResponse,
     CameraResponse
 )
+from app.modules.auth.dependencies import PermissionChecker
 
 
 router = APIRouter(
@@ -25,7 +26,7 @@ def get_camera_service(
     return CameraService(repository)
 
 
-@router.post("/", response_model=CameraResponse)
+@router.post("/", response_model=CameraResponse, dependencies=[Depends(PermissionChecker("cameras:create"))])
 async def create_camera(
     camera: CameraCreateRequest,
     service: CameraService = Depends(get_camera_service)
@@ -33,7 +34,7 @@ async def create_camera(
     return await service.create_camera(camera)
 
 
-@router.get("/list", response_model=CameraListResponse)
+@router.get("/list", response_model=CameraListResponse, dependencies=[Depends(PermissionChecker("cameras:list"))])
 async def list_cameras(
     request: CameraListRequest = Depends(),
     service: CameraService = Depends(get_camera_service)
@@ -41,7 +42,7 @@ async def list_cameras(
     return await service.list_cameras(request)
 
 
-@router.get("/{camera_id}", response_model=CameraResponse)
+@router.get("/{camera_id}", response_model=CameraResponse, dependencies=[Depends(PermissionChecker("cameras:get"))])
 async def get_camera(
     camera_id: int,
     service: CameraService = Depends(get_camera_service)
@@ -49,7 +50,7 @@ async def get_camera(
     return await service.get_camera(camera_id)
 
 
-@router.put("/{camera_id}", response_model=CameraResponse)
+@router.put("/{camera_id}", response_model=CameraResponse, dependencies=[Depends(PermissionChecker("cameras:update"))])
 async def update_camera(
     camera_id: int,
     camera: CameraUpdateRequest,
@@ -58,7 +59,7 @@ async def update_camera(
     return await service.update_camera(camera_id, camera)
 
 
-@router.delete("/{camera_id}", response_model=CameraResponse)
+@router.delete("/{camera_id}", response_model=CameraResponse, dependencies=[Depends(PermissionChecker("cameras:delete"))])
 async def delete_camera(
     camera_id: int,
     service: CameraService = Depends(get_camera_service)
@@ -66,7 +67,7 @@ async def delete_camera(
     return await service.delete_camera(camera_id)
 
 
-@router.post("/{camera_id}/connect", response_model=CameraResponse)
+@router.post("/{camera_id}/connect", response_model=CameraResponse, dependencies=[Depends(PermissionChecker("cameras:connect"))])
 async def connect_camera(
     camera_id: int,
     service: CameraService = Depends(get_camera_service)
@@ -74,7 +75,7 @@ async def connect_camera(
     return await service.connect_camera(camera_id)
 
 
-@router.post("/{camera_id}/disconnect", response_model=CameraResponse)
+@router.post("/{camera_id}/disconnect", response_model=CameraResponse, dependencies=[Depends(PermissionChecker("cameras:disconnect"))])
 async def disconnect_camera(
     camera_id: int,
     service: CameraService = Depends(get_camera_service)
@@ -82,14 +83,14 @@ async def disconnect_camera(
     return await service.disconnect_camera(camera_id)
 
 
-@router.post("/{camera_id}/restart", response_model=CameraResponse)
+@router.post("/{camera_id}/restart", response_model=CameraResponse, dependencies=[Depends(PermissionChecker("cameras:restart"))])
 async def restart_camera(
     camera_id: int,
     service: CameraService = Depends(get_camera_service)
 ):
     return await service.restart_camera(camera_id)
 
-@router.post("/{camera_id}/sync-employees")
+@router.post("/{camera_id}/sync-employees", dependencies=[Depends(PermissionChecker("cameras:sync_employees"))])
 async def sync_employees_to_camera(
     camera_id: int,
     service: CameraService = Depends(get_camera_service)

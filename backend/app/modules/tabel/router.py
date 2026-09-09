@@ -11,6 +11,7 @@ from app.modules.tabel.schemas import (
     TabelMonthRequest,
     TabelMonthResponse,
 )
+from app.modules.auth.dependencies import PermissionChecker
 
 router = APIRouter(
     tags=["Tabel"],
@@ -25,7 +26,7 @@ def get_tabel_service(
     return TabelService(repository)
 
 
-@router.get("/month", response_model=TabelMonthResponse)
+@router.get("/month", response_model=TabelMonthResponse, dependencies=[Depends(PermissionChecker("tabel:month"))])
 async def get_month(
     request: TabelMonthRequest = Depends(),
     service: TabelService = Depends(get_tabel_service),
@@ -33,7 +34,7 @@ async def get_month(
     return await service.get_month(request)
 
 
-@router.put("/entry", response_model=TabelEntryResult)
+@router.put("/entry", response_model=TabelEntryResult, dependencies=[Depends(PermissionChecker("tabel:update_entry"))])
 async def upsert_entry(
     payload: TabelEntryUpsertRequest,
     service: TabelService = Depends(get_tabel_service),
@@ -41,7 +42,7 @@ async def upsert_entry(
     return await service.upsert_entry(payload)
 
 
-@router.delete("/entry", response_model=TabelEntryResult)
+@router.delete("/entry", response_model=TabelEntryResult, dependencies=[Depends(PermissionChecker("tabel:delete_entry"))])
 async def delete_entry(
     payload: TabelEntryDeleteRequest,
     service: TabelService = Depends(get_tabel_service),

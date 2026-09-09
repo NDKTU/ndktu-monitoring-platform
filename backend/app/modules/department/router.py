@@ -11,6 +11,7 @@ from app.modules.department.schemas import (
     DepartmentListResponse,
     DepartmentResponse,
 )
+from app.modules.auth.dependencies import PermissionChecker
 
 router = APIRouter(
     tags=["Departments"],
@@ -25,7 +26,7 @@ def get_department_service(
     return DepartmentService(repository)
 
 
-@router.post("/", response_model=DepartmentResponse)
+@router.post("/", response_model=DepartmentResponse, dependencies=[Depends(PermissionChecker("departments:create"))])
 async def create_department(
     department: DepartmentCreateRequest,
     service: DepartmentService = Depends(get_department_service),
@@ -33,7 +34,7 @@ async def create_department(
     return await service.create_department(department)
 
 
-@router.get("/list", response_model=DepartmentListResponse)
+@router.get("/list", response_model=DepartmentListResponse, dependencies=[Depends(PermissionChecker("departments:list"))])
 async def list_departments(
     request: DepartmentListRequest = Depends(),
     service: DepartmentService = Depends(get_department_service),
@@ -41,7 +42,7 @@ async def list_departments(
     return await service.list_departments(request)
 
 
-@router.get("/{department_id}", response_model=DepartmentResponse)
+@router.get("/{department_id}", response_model=DepartmentResponse, dependencies=[Depends(PermissionChecker("departments:get"))])
 async def get_department(
     department_id: int,
     service: DepartmentService = Depends(get_department_service),
@@ -49,7 +50,7 @@ async def get_department(
     return await service.get_department(department_id)
 
 
-@router.put("/{department_id}", response_model=DepartmentResponse)
+@router.put("/{department_id}", response_model=DepartmentResponse, dependencies=[Depends(PermissionChecker("departments:update"))])
 async def update_department(
     department_id: int,
     department: DepartmentUpdateRequest,
@@ -58,7 +59,7 @@ async def update_department(
     return await service.update_department(department_id, department)
 
 
-@router.delete("/{department_id}", response_model=DepartmentResponse)
+@router.delete("/{department_id}", response_model=DepartmentResponse, dependencies=[Depends(PermissionChecker("departments:delete"))])
 async def delete_department(
     department_id: int,
     service: DepartmentService = Depends(get_department_service),
