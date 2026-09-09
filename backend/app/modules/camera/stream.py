@@ -6,7 +6,7 @@ import httpx
 import logging
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from app.core.db_helper import db_helper
 from app.models.employees.model import Employee
 from app.modules.attendance.status_service import apply_enter, apply_exit
@@ -100,20 +100,39 @@ class HikiVisionConnection:
                         if part.strip():
                             yield part
 
-    async def publish_event(self, employee_no: str, dt_str: str, image_path: str | None = None):
+    async def publish_event(
+        self,
+        employee_no: str,
+        dt_str: str,
+        image_path: str | None = None,
+        person_name: str = "",
+    ):
         try:
             try:
                 event_time = datetime.fromisoformat(dt_str)
             except Exception:
                 event_time = datetime.utcnow()
 
+            keys = [k for k in (employee_no, person_name) if k]
+            if not keys:
+                return
+
             async for session in db_helper.session_getter():
-                employee_stmt = select(Employee).where(Employee.jshir == employee_no)
+                # An event identifies a person by the code they were enrolled under
+                # (employeeNoString) or by their JSHIR (name); accept either.
+                employee_stmt = select(Employee).where(
+                    or_(
+                        Employee.camera_code.in_(keys),
+                        Employee.jshir.in_(keys),
+                    )
+                )
                 employee_result = await session.execute(employee_stmt)
-                employee = employee_result.scalar_one_or_none()
+                employee = employee_result.scalars().first()
 
                 if not employee:
-                    logger.warning(f"Employee with jshir '{employee_no}' not found in DB.")
+                    logger.warning(
+                        f"No employee matches camera_code/jshir in {keys!r}."
+                    )
                     return
 
                 if self.direction == "enter":
@@ -164,14 +183,26 @@ class HikiVisionConnection:
 
                 if event_type == "AccessControllerEvent":
                     data = json_data.get("AccessControllerEvent", {})
-                    employee_no = data.get("employeeNoString")
+                    employee_no = (data.get("employeeNoString") or "").strip()
+                    # The terminals put the JSHIR in `name`, usually padded with
+                    # spaces. Either field identifies the person; both are passed on.
+                    person_name = (data.get("name") or "").strip()
 
-                    if employee_no:
-                        logger.info(f"Received Access Event: Employee {employee_no} at {dt}")
-                        await self.publish_event(employee_no, dt, image_path=self.current_image_path)
+                    if employee_no or person_name:
+                        logger.info(
+                            f"Received Access Event: employeeNo={employee_no!r} "
+                            f"name={person_name!r} at {dt}"
+                        )
+                        await self.publish_event(
+                            employee_no, dt,
+                            image_path=self.current_image_path,
+                            person_name=person_name,
+                        )
                         self.current_image_path = None
                     else:
-                        logger.warning(f"Access event received but missing employeeNoString: {json_data}")
+                        # Door open/close records (minor 21/22) carry no identity at
+                        # all — they are not attendance and are expected here.
+                        logger.debug(f"Access event without identity: {json_data}")
                 else:
                     logger.debug(f"Received non-access event type '{event_type}': {json_data}")
 

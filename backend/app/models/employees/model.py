@@ -20,7 +20,14 @@ class Employee(Base, IdIntPk, TimestampMixin):
     last_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
     third_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
     passport_series: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True)
-    jshir: Mapped[str] = mapped_column(String(14), unique=True, nullable=False)
+    # 16, not 14: a handful of records carry a longer value, and the cameras store
+    # them in full — truncating here is what stopped them matching.
+    jshir: Mapped[str] = mapped_column(String(16), unique=True, nullable=False)
+    # employeeNoString as enrolled in the Hikvision terminals. Access events carry
+    # this, not the JSHIR, so it is the only reliable key for live matching.
+    camera_code: Mapped[str | None] = mapped_column(
+        String(32), unique=True, nullable=True
+    )
     in_work: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     image_path: Mapped[str | None] = mapped_column(String, nullable=True)
     work_rate: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
