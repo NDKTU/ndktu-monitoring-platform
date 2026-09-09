@@ -4,12 +4,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.rbac.model import Role, Permission
 from app.modules.role.schemas import RoleCreateRequest, RoleUpdateRequest, RoleListRequest, RolePermissionsRequest
 
+# The bootstrap role init_rbac creates and keeps in sync with every permission.
+# It is hidden from the API entirely — see RoleService._reject_admin.
+ADMIN_ROLE_NAME = "admin"
+
 class RoleRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
     async def list_roles(self, request: RoleListRequest) -> list[Role]:
-        query = select(Role).options(selectinload(Role.permissions)).where(Role.name != "admin")
+        query = select(Role).options(selectinload(Role.permissions)).where(Role.name != ADMIN_ROLE_NAME)
         if request.search:
             query = query.where(Role.name.ilike(f"%{request.search}%"))
         result = await self.session.execute(query)
