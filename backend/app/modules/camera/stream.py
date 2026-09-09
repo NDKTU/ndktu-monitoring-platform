@@ -4,7 +4,7 @@ import traceback
 import asyncio
 import httpx
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select, or_
 from app.core.db_helper import db_helper
@@ -12,6 +12,18 @@ from app.models.employees.model import Employee
 from app.modules.attendance.status_service import apply_enter, apply_exit
 
 logger = logging.getLogger(__name__)
+
+# The terminals timestamp events with an offset (…+05:00) while every datetime
+# column here is timestamp-without-time-zone, so an aware value cannot be compared
+# with what is already stored. Normalise to local wall-clock time on the way in.
+LOCAL_TZ = timezone(timedelta(hours=5))
+
+
+def _to_local_naive(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(LOCAL_TZ).replace(tzinfo=None)
+
 
 
 async def _mark_camera_inactive(camera_id: int) -> None:
@@ -109,9 +121,9 @@ class HikiVisionConnection:
     ):
         try:
             try:
-                event_time = datetime.fromisoformat(dt_str)
+                event_time = _to_local_naive(datetime.fromisoformat(dt_str))
             except Exception:
-                event_time = datetime.utcnow()
+                event_time = datetime.now()
 
             keys = [k for k in (employee_no, person_name) if k]
             if not keys:
