@@ -110,11 +110,13 @@ async def run(args) -> None:
                 await conn.execute(select(Employee.id, Employee.jshir))
             ).all()
             by_jshir = {j: i for i, j in employees}
-            # A JSHIR longer than the old 14-char column was truncated at import and
-            # given a synthetic LGC id; match those on their digits instead.
-            by_digits: dict[str, int] = {}
+            # A JSHIR that did not fit the old 14-char column was replaced at import
+            # by a synthetic "LGC<legacy id>" — and that legacy id is exactly the code
+            # the terminals have the person enrolled under, so it reconnects them.
+            by_legacy_code: dict[str, int] = {}
             for emp_id, jshir in employees:
-                by_digits.setdefault(_digits(jshir), emp_id)
+                if jshir.startswith("LGC"):
+                    by_legacy_code[_digits(jshir).lstrip("0")] = emp_id
 
             code_updates: list[tuple[int, str]] = []
             jshir_repairs: list[tuple[int, str]] = []
@@ -123,9 +125,9 @@ async def run(args) -> None:
             for jshir, code in enrolled.items():
                 emp_id = by_jshir.get(jshir)
                 if emp_id is None:
-                    emp_id = by_digits.get(_digits(jshir)[:14]) or by_digits.get(
-                        _digits(jshir)
-                    )
+                    emp_id = by_legacy_code.get(code.lstrip("0"))
+                    # Longer than the column even after widening? Keep the
+                    # synthetic id — camera_code alone is enough to match events.
                     if emp_id is not None and len(jshir) <= JSHIR_MAX:
                         jshir_repairs.append((emp_id, jshir))
                 if emp_id is None:
@@ -142,19 +144,12 @@ async def run(args) -> None:
                     update(Employee).where(Employee.id == emp_id).values(camera_code=code)
                 )
 
-            linked = await conn.scalar(
-                select(Employee.id).where(Employee.camera_code.is_not(None)).limit(1)
-            )
-            total_linked = len(code_updates)
-
             report.append("")
-            report.append(f"  camera_code set     : {total_linked}")
+            report.append(f"  camera_code set     : {len(code_updates)}")
             report.append(f"  jshir restored      : {len(jshir_repairs)}")
             report.append(f"  enrolled but unknown: {len(unmatched)}")
             for row in unmatched[:20]:
                 report.append(f"      {row}")
-            if linked is None and not args.apply:
-                pass
 
             if not args.apply:
                 raise _Rollback
