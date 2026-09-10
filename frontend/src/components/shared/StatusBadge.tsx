@@ -1,9 +1,9 @@
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import type { AttendanceStatus } from '@/types/dailyAttendance'
+import type { DayStatus } from '@/types/dailyAttendance'
 
 const STATUS_MAP: Record<
-  AttendanceStatus,
+  DayStatus,
   { label: string; className: string }
 > = {
   ON_TIME: {
@@ -33,10 +33,18 @@ const STATUS_MAP: Record<
     label: 'Chiqish yo‘q',
     className: 'bg-destructive/15 text-destructive border-transparent',
   },
+  ABSENT: {
+    label: 'Kelmagan',
+    className: 'bg-destructive/15 text-destructive border-transparent',
+  },
+  DAY_OFF: {
+    label: 'Dam olish',
+    className: 'bg-muted text-muted-foreground border-transparent',
+  },
 }
 
 type StatusBadgeProps = {
-  status: AttendanceStatus | null
+  status: DayStatus | null
   className?: string
 }
 

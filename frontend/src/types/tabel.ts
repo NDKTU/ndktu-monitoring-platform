@@ -34,6 +34,26 @@ export const TABEL_CODES: TabelCodeInfo[] = [
   { code: 'F', label: 'Progullar' },
 ]
 
+export const TABEL_CODE_CLASS: Record<TabelCode, string> = {
+  B: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  A: 'bg-muted text-muted-foreground',
+  V: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  VU: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
+  N: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
+  G: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+  O: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  OU: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+  R: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  RP: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+  S: 'bg-pink-500/15 text-pink-600 dark:text-pink-400',
+  P: 'bg-destructive/15 text-destructive',
+  F: 'bg-destructive/15 text-destructive',
+}
+
+export const TABEL_CODE_LABEL = new Map(
+  TABEL_CODES.map((entry) => [entry.code, entry.label]),
+)
+
 export type TabelCellSource = 'auto' | 'manual'
 
 export type TabelCell = {

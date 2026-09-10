@@ -16,6 +16,7 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { Pagination } from '@/components/shared/Pagination'
 import { ScrollableTable } from '@/components/shared/ScrollableTable'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { TabelCodeBadge } from '@/components/shared/TabelCodeBadge'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -494,6 +495,9 @@ function AttendanceSection({ employeeId }: { employeeId: number }) {
         employee_id: employeeId,
         limit: DAILY_LIMIT,
         page,
+        // A day with no record is a day the person did not come; ask the API to
+        // walk the calendar so those days show up instead of being skipped.
+        fill_absent: true,
       })
       setDays(res.items)
       setTotal(res.total)
@@ -592,7 +596,7 @@ function AttendanceSection({ employeeId }: { employeeId: number }) {
                 const dayEvents = eventsByDate[item.date] ?? []
                 return (
                   <DayRows
-                    key={item.id}
+                    key={item.date}
                     item={item}
                     isOpen={isOpen}
                     dayEvents={dayEvents}
@@ -631,12 +635,17 @@ function DayRows({
   const hasAnyImage = dayEvents.some(
     (e) => e.enter_image_path || e.exit_image_path,
   )
+  // A synthesised day carries no id and no segments — nothing to expand into.
+  const isRecorded = item.id !== null
 
   return (
     <>
-      <TableRow className="cursor-pointer" onClick={onToggle}>
+      <TableRow
+        className={isRecorded ? 'cursor-pointer' : undefined}
+        onClick={isRecorded ? onToggle : undefined}
+      >
         <TableCell>
-          {isOpen ? (
+          {!isRecorded ? null : isOpen ? (
             <ChevronDown className="size-4 text-muted-foreground" aria-hidden />
           ) : (
             <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
@@ -646,7 +655,19 @@ function DayRows({
           {formatShortDate(item.date)}
         </TableCell>
         <TableCell>
-          <StatusBadge status={item.status} />
+          <div className="flex flex-wrap items-center gap-1.5">
+            {/* A day with no record and a tabel mark is explained by that mark
+                alone; on a recorded day the mark sits beside the real status. */}
+            {isRecorded || !item.tabel_code ? (
+              <StatusBadge status={item.status} />
+            ) : null}
+            {item.tabel_code ? (
+              <TabelCodeBadge
+                code={item.tabel_code}
+                comment={item.tabel_comment}
+              />
+            ) : null}
+          </div>
         </TableCell>
         <TableCell className="tabular-nums">
           {formatTimeOnly(item.first_enter_time)}
@@ -655,10 +676,10 @@ function DayRows({
           {formatTimeOnly(item.last_exit_time)}
         </TableCell>
         <TableCell className="text-right tabular-nums">
-          {item.total_working_hours.toFixed(2)}
+          {isRecorded ? item.total_working_hours.toFixed(2) : '—'}
         </TableCell>
       </TableRow>
-      {isOpen ? (
+      {isRecorded && isOpen ? (
         <TableRow className="bg-muted/30 hover:bg-muted/30">
           <TableCell colSpan={6} className="p-0">
             <div className="px-4 py-3">

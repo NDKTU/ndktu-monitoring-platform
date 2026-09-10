@@ -225,7 +225,7 @@ export default function DailyAttendancePage() {
                 </TableHeader>
                 <TableBody>
                   {items.map((item) => (
-                    <TableRow key={item.id}>
+                    <TableRow key={item.id ?? item.date}>
                       <TableCell className="tabular-nums">
                         {formatDate(item.date)}
                       </TableCell>
