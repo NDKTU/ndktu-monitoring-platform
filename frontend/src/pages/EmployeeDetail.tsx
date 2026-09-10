@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Pagination } from '@/components/shared/Pagination'
+import { PhotoPreview } from '@/components/shared/PhotoPreview'
 import { ScrollableTable } from '@/components/shared/ScrollableTable'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { TabelCodeBadge } from '@/components/shared/TabelCodeBadge'
@@ -729,17 +730,17 @@ function DayRows({
                             <TableCell className="text-right">
                               <div className="inline-flex items-center justify-end gap-1.5">
                                 {enterUrl ? (
-                                  <img
+                                  <PhotoPreview
                                     src={enterUrl}
-                                    alt=""
-                                    className="size-9 rounded-md object-cover"
+                                    label="Kirish"
+                                    caption={formatTimeOnly(ev.enter_time)}
                                   />
                                 ) : null}
                                 {exitUrl ? (
-                                  <img
+                                  <PhotoPreview
                                     src={exitUrl}
-                                    alt=""
-                                    className="size-9 rounded-md object-cover"
+                                    label="Chiqish"
+                                    caption={formatTimeOnly(ev.exit_time ?? null)}
                                   />
                                 ) : null}
                               </div>
