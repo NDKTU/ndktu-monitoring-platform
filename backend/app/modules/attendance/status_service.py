@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time as time_type, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -67,6 +67,36 @@ async def _get_or_create_daily(
     return daily
 
 
+def _day_bounds(day: date) -> tuple[datetime, datetime]:
+    start = datetime.combine(day, time_type.min)
+    return start, start + timedelta(days=1)
+
+
+async def _open_segment_today(
+    session: AsyncSession, employee_id: int, day: date
+) -> Attendance | None:
+    """The person's still-open entry for that day, if any.
+
+    Scoped to the day on purpose: an entry left open because its exit was never
+    captured must not be closed by an exit days later — that produced segments
+    of 56 hours and daily totals in the thousands.
+    """
+    start, end = _day_bounds(day)
+    stmt = (
+        select(Attendance)
+        .where(
+            Attendance.employee_id == employee_id,
+            Attendance.exit_time.is_(None),
+            Attendance.enter_time.is_not(None),
+            Attendance.enter_time >= start,
+            Attendance.enter_time < end,
+        )
+        .order_by(Attendance.enter_time.desc())
+        .limit(1)
+    )
+    return (await session.execute(stmt)).scalar_one_or_none()
+
+
 async def _get_schedule(session: AsyncSession, employee_id: int) -> WorkSchedule | None:
     stmt = (
         select(WorkSchedule)
@@ -87,16 +117,21 @@ async def apply_enter(
 ) -> None:
     """Handle an enter event: create segment, upsert daily, recompute status."""
 
-    segment = Attendance(
-        employee_id=employee.id,
-        camera_id=camera_id,
-        enter_time=event_time,
-        enter_image_path=image_path,
-    )
-    session.add(segment)
-
     day = event_time.date()
     daily = await _get_or_create_daily(session, employee.id, day)
+
+    # The terminals re-identify whoever stands in front of them, firing the same
+    # person a dozen times in a minute. One entry stays open per person per day;
+    # the repeats would each open another segment that no exit ever closes.
+    if await _open_segment_today(session, employee.id, day) is None:
+        session.add(
+            Attendance(
+                employee_id=employee.id,
+                camera_id=camera_id,
+                enter_time=event_time,
+                enter_image_path=image_path,
+            )
+        )
 
     if daily.first_enter_time is None:
         daily.first_enter_time = event_time
@@ -120,18 +155,7 @@ async def apply_exit(
     day = event_time.date()
     daily = await _get_or_create_daily(session, employee.id, day)
 
-    open_stmt = (
-        select(Attendance)
-        .where(
-            Attendance.employee_id == employee.id,
-            Attendance.exit_time.is_(None),
-            Attendance.enter_time.is_not(None),
-        )
-        .order_by(Attendance.enter_time.desc())
-        .limit(1)
-    )
-    open_result = await session.execute(open_stmt)
-    open_segment = open_result.scalar_one_or_none()
+    open_segment = await _open_segment_today(session, employee.id, day)
 
     # An exit stamped earlier than the entry it would close is not that person's
     # exit: events can reach us out of order, and pairing them yields negative
@@ -169,34 +193,41 @@ async def apply_exit(
     daily.status = compute_status(schedule, daily)
 
 
-async def mark_open_segments_no_exit(session: AsyncSession, today: date) -> int:
-    """Find Attendance rows with no exit from past days; flag their daily row as NO_EXIT.
+async def mark_open_segments_no_exit(
+    session: AsyncSession, today: date, lookback_days: int = 7
+) -> int:
+    """Flag days that ended with an entry still open as NO_EXIT.
+
+    Only the last `lookback_days` are examined. The previous version re-read every
+    open segment ever recorded — tens of thousands of rows, each with its own
+    schedule query — which grows without bound and re-flags days already settled.
+    Anything older than the window has been through this sweep already.
 
     Returns the number of daily rows updated.
     """
-    stmt = (
-        select(Attendance)
-        .where(
-            Attendance.exit_time.is_(None),
-            Attendance.enter_time.is_not(None),
-        )
+    window_start = datetime.combine(today - timedelta(days=lookback_days), time_type.min)
+    day_start = datetime.combine(today, time_type.min)
+
+    stmt = select(Attendance.employee_id, Attendance.enter_time).where(
+        Attendance.exit_time.is_(None),
+        Attendance.enter_time.is_not(None),
+        Attendance.enter_time >= window_start,
+        Attendance.enter_time < day_start,
     )
-    result = await session.execute(stmt)
-    open_segments = result.scalars().all()
+    rows = (await session.execute(stmt)).all()
 
-    updated_daily_ids: set[int] = set()
-    for seg in open_segments:
-        assert seg.enter_time is not None
-        seg_day = seg.enter_time.date()
-        if seg_day >= today:
-            continue
+    # One pass per (employee, day) rather than per segment: a day with a dozen
+    # repeat entries used to be handled a dozen times.
+    pending = {(employee_id, when.date()) for employee_id, when in rows}
 
-        daily = await _get_or_create_daily(session, seg.employee_id, seg_day)
-        if daily.id in updated_daily_ids:
+    updated = 0
+    for employee_id, seg_day in sorted(pending):
+        daily = await _get_or_create_daily(session, employee_id, seg_day)
+        if daily.has_no_exit:
             continue
         daily.has_no_exit = True
-        schedule = await _get_schedule(session, seg.employee_id)
+        schedule = await _get_schedule(session, employee_id)
         daily.status = compute_status(schedule, daily)
-        updated_daily_ids.add(daily.id)
+        updated += 1
 
-    return len(updated_daily_ids)
+    return updated
