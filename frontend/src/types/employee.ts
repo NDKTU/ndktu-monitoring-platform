@@ -84,3 +84,11 @@ export type FaceUploadResponse = {
   cameras_synced: number
   results: FaceSyncResult[]
 }
+
+/** Create returns the employee together with where their face landed. */
+export type EmployeeCreateResponse = {
+  employee: Employee
+  cameras_total: number
+  cameras_synced: number
+  results: FaceSyncResult[]
+}

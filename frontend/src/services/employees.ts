@@ -2,6 +2,7 @@ import { api } from '@/lib/api'
 import type {
   Employee,
   EmployeeCreateInput,
+  EmployeeCreateResponse,
   EmployeeListParams,
   EmployeeListResponse,
   EmployeeUpdateInput,
@@ -19,8 +20,19 @@ export const employeesService = {
     const { data } = await api.get<Employee>(`/employees/${id}`)
     return data
   },
-  create: async (input: EmployeeCreateInput) => {
-    const { data } = await api.post<Employee>('/employees/', input)
+  /**
+   * Creates the employee and enrols their face in one request. The face is
+   * required: the backend rolls the employee back if no terminal accepts it.
+   */
+  create: async (input: EmployeeCreateInput, face: File) => {
+    const body = new FormData()
+    Object.entries(input).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        body.append(key, String(value))
+      }
+    })
+    body.append('file', face)
+    const { data } = await api.post<EmployeeCreateResponse>('/employees/', body)
     return data
   },
   update: async (id: number, input: EmployeeUpdateInput) => {

@@ -18,4 +18,5 @@ dependencies = [
     "pyjwt>=2.13.0",
     "passlib>=1.7.4",
     "bcrypt>=5.0.0",
+    "pillow>=12.0.0",
 ]

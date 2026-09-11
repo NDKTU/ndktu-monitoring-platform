@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status, UploadFile
 from app.modules.employee.hikvision_service import HikiUserService
+from app.modules.employee.image import compress_image_for_hikvision
 from app.modules.camera.repository import CameraRepository
 from app.core.config import settings
 import logging
@@ -57,6 +58,16 @@ class EmployeeService:
                     ok = await hiki_service.upload_face_image(user_id=kwargs['user_id'], image_path=kwargs['image_path'])
                     if not ok:
                          logging.error(f"Failed to upload face on camera {camera.device_ip}")
+                elif action == "register":
+                    # Record and face in one go: a record without a face opens
+                    # nothing, so the pair is what counts as success here.
+                    ok = await hiki_service.register_with_face(
+                        user_id=kwargs['user_id'],
+                        user_name=kwargs['user_name'],
+                        image_path=kwargs['image_path'],
+                    )
+                    if not ok:
+                         logging.error(f"Failed to register user on camera {camera.device_ip}")
                 else:
                     return {"device_ip": camera.device_ip, "ok": False, "error": f"unknown action {action}"}
                 return {
@@ -75,12 +86,103 @@ class EmployeeService:
             return []
         return list(await asyncio.gather(*tasks))
 
-    async def create_employee(self, employee: EmployeeCreateRequest) -> Employee:
+    async def create_employee(
+        self, employee: EmployeeCreateRequest, file: UploadFile
+    ) -> dict:
+        """Create the employee and enrol their face, or create nobody at all.
+
+        An employee the terminals have never heard of is worse than no employee:
+        they show up in every list and report, and the turnstiles walk straight
+        past them. So the face goes up with the record, and if no terminal took
+        it the record is rolled back rather than left behind as a half-registered
+        person.
+        """
+        import os
+
+        face_path = await self._store_face_image(employee.jshir, file)
+        employee = employee.model_copy(update={"image_path": face_path})
+
         new_employee = await self.repository.create_employee(employee)
-        # Sync with Hikvision
         user_name = new_employee.display_name
-        await self._sync_with_hikvision("create", user_id=new_employee.jshir, user_name=user_name)
-        return new_employee
+
+        if not settings.hikvision.enabled:
+            # Nothing to fail: with the integration off there is no terminal side
+            # to be consistent with, and refusing every create would leave the
+            # platform unusable.
+            return {
+                "employee": new_employee,
+                "cameras_total": 0,
+                "cameras_synced": 0,
+                "results": [],
+            }
+
+        results = await self._sync_with_hikvision(
+            "register",
+            user_id=new_employee.jshir,
+            user_name=user_name,
+            image_path=face_path,
+        )
+        synced = [r for r in results if r["ok"]]
+
+        if not synced:
+            await self.repository.delete_employee(new_employee.id)
+            # A device may have taken the record but refused the face; clear
+            # those too, so a retry does not meet a stale half-registration.
+            await self._sync_with_hikvision("delete", user_id=new_employee.jshir)
+            try:
+                os.remove(face_path)
+            except OSError:
+                pass
+            detail = (
+                "Xodim hech bir terminalga qo‘shilmadi, shuning uchun bazaga ham "
+                "yozilmadi. Rasm va kameralar holatini tekshiring."
+                if results
+                else "Faol kamera yo‘q, shuning uchun xodim yaratilmadi."
+            )
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY, detail=detail
+            )
+
+        return {
+            "employee": new_employee,
+            "cameras_total": len(results),
+            "cameras_synced": len(synced),
+            "results": results,
+        }
+
+    async def _store_face_image(self, jshir: str, file: UploadFile) -> str:
+        """Save the upload and hand back a shot the terminals will accept."""
+        import os
+        import uuid
+
+        if not (file.content_type or "").startswith("image/"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Faqat rasm fayli yuklanishi mumkin.",
+            )
+
+        upload_dir = "uploads/faces"
+        os.makedirs(upload_dir, exist_ok=True)
+
+        ext = file.filename.split('.')[-1] if '.' in (file.filename or '') else 'jpg'
+        raw_path = os.path.join(upload_dir, f"{jshir}_{uuid.uuid4().hex[:8]}.{ext}")
+
+        content = await file.read()
+        with open(raw_path, "wb") as f:
+            f.write(content)
+
+        try:
+            return compress_image_for_hikvision(raw_path)
+        except Exception as e:
+            try:
+                os.remove(raw_path)
+            except OSError:
+                pass
+            logging.error(f"Could not prepare face image: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Rasmni qayta ishlab bo‘lmadi. Boshqa rasm tanlang.",
+            )
 
     async def list_employees(self, request: EmployeeListRequest) -> EmployeeListResponse:
         return await self.repository.list_employees(request)
@@ -365,32 +467,10 @@ class EmployeeService:
         )
 
     async def upload_face(self, employee_id: int, file: UploadFile) -> dict:
-        import os
-        import uuid
-        
         employee = await self.get_employee(employee_id)
         jshir = employee.jshir
 
-        # The shot is about to be pushed to six access-control terminals and to
-        # become the person's avatar, so refuse anything that is not an image
-        # rather than let the devices reject it one by one.
-        if not (file.content_type or "").startswith("image/"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Faqat rasm fayli yuklanishi mumkin.",
-            )
-        
-        # Save file locally first
-        upload_dir = "uploads/faces"
-        os.makedirs(upload_dir, exist_ok=True)
-        
-        ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
-        file_name = f"{jshir}_{uuid.uuid4().hex[:8]}.{ext}"
-        file_path = os.path.join(upload_dir, file_name)
-        
-        content = await file.read()
-        with open(file_path, "wb") as f:
-            f.write(content)
+        file_path = await self._store_face_image(jshir, file)
 
         # The card should show the shot the terminals were given, so remember it
         # on the employee. Written straight through the repository: the service's

@@ -80,3 +80,27 @@ class EmployeeUploadResponse(BaseModel):
     imported_count: int
     errors: list[str] = []
 
+class FaceSyncResult(BaseModel):
+    """What one terminal made of a change pushed to it."""
+    device_ip: str
+    ok: bool
+    error: str | None = None
+
+
+class EmployeeCreateResponse(BaseModel):
+    """A new employee, plus where their face actually landed."""
+    employee: EmployeeResponse
+    cameras_total: int
+    cameras_synced: int
+    results: list[FaceSyncResult] = []
+
+
+class FaceUploadResponse(BaseModel):
+    success: bool
+    message: str
+    path: str
+    image_path: str
+    cameras_total: int
+    cameras_synced: int
+    results: list[FaceSyncResult] = []
+

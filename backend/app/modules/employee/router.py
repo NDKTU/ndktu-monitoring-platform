@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, UploadFile
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db_helper import db_helper
@@ -6,11 +8,13 @@ from app.modules.employee.repository import EmployeeRepository
 from app.modules.employee.service import EmployeeService
 from app.modules.employee.schemas import (
     EmployeeCreateRequest,
+    EmployeeCreateResponse,
     EmployeeUpdateRequest,
     EmployeeListRequest,
     EmployeeListResponse,
     EmployeeResponse,
     EmployeeUploadResponse,
+    FaceUploadResponse,
 )
 from app.modules.auth.dependencies import PermissionChecker
 
@@ -28,12 +32,34 @@ def get_employee_service(
     return EmployeeService(repository)
 
 
-@router.post("/", response_model=EmployeeResponse, dependencies=[Depends(PermissionChecker("employees:create"))])
+@router.post("/", response_model=EmployeeCreateResponse, dependencies=[Depends(PermissionChecker("employees:create"))])
 async def create_employee(
-    employee: EmployeeCreateRequest,
+    # Multipart rather than JSON: the face shot travels with the employee, and
+    # a person the terminals cannot recognise is not worth creating.
+    jshir: Annotated[str, Form()],
+    file: Annotated[UploadFile, File()],
+    first_name: Annotated[str | None, Form()] = None,
+    last_name: Annotated[str | None, Form()] = None,
+    third_name: Annotated[str | None, Form()] = None,
+    passport_series: Annotated[str | None, Form()] = None,
+    in_work: Annotated[bool, Form()] = False,
+    position_id: Annotated[int | None, Form()] = None,
+    department_id: Annotated[int | None, Form()] = None,
+    work_rate: Annotated[float, Form()] = 1.0,
     service: EmployeeService = Depends(get_employee_service),
 ):
-    return await service.create_employee(employee)
+    employee = EmployeeCreateRequest(
+        jshir=jshir,
+        first_name=first_name,
+        last_name=last_name,
+        third_name=third_name,
+        passport_series=passport_series,
+        in_work=in_work,
+        position_id=position_id,
+        department_id=department_id,
+        work_rate=work_rate,
+    )
+    return await service.create_employee(employee, file)
 
 
 @router.get("/list", response_model=EmployeeListResponse, dependencies=[Depends(PermissionChecker("employees:list"))])
@@ -77,7 +103,7 @@ async def upload_employees_excel(
     return await service.upload_excel(file)
 
 
-@router.post("/{employee_id}/face", dependencies=[Depends(PermissionChecker("employees:face"))])
+@router.post("/{employee_id}/face", response_model=FaceUploadResponse, dependencies=[Depends(PermissionChecker("employees:face"))])
 async def upload_employee_face(
     employee_id: int,
     file: UploadFile,

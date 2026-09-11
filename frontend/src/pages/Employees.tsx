@@ -68,6 +68,7 @@ import type {
   Employee,
   EmployeeCreateInput,
   EmployeeListParams,
+  FaceSyncResult,
 } from '@/types/employee'
 import { useEffect } from 'react'
 
@@ -210,26 +211,34 @@ export default function EmployeesPage() {
     setDialogOpen(true)
   }
 
-  /** Reports, in one toast, how many terminals took the shot. */
+  /** Says, in one toast, how many terminals took the shot. */
+  const reportSync = (
+    synced: number,
+    total: number,
+    results: FaceSyncResult[],
+  ) => {
+    if (total === 0) {
+      toast.warning(
+        "Rasm saqlandi, lekin terminallarga yuborilmadi: faol kamera yo'q yoki integratsiya o'chirilgan.",
+      )
+    } else if (synced === total) {
+      toast.success(`Rasm ${total} ta terminalga yuklandi.`)
+    } else if (synced > 0) {
+      const failed = results.filter((r) => !r.ok).map((r) => r.device_ip)
+      toast.warning(
+        `Rasm ${synced}/${total} terminalga yuklandi. Xatolik: ${failed.join(', ')}`,
+      )
+    } else {
+      toast.error(
+        "Rasm hech bir terminalga yuklanmadi. Kameralar holatini tekshiring.",
+      )
+    }
+  }
+
   const uploadPhoto = async (employeeId: number, file: File) => {
     try {
       const res = await employeesService.uploadFace(employeeId, file)
-      if (res.cameras_total === 0) {
-        toast.warning(
-          "Rasm saqlandi, lekin terminallarga yuborilmadi: faol kamera yo'q yoki integratsiya o'chirilgan.",
-        )
-      } else if (res.cameras_synced === res.cameras_total) {
-        toast.success(`Rasm ${res.cameras_total} ta terminalga yuklandi.`)
-      } else if (res.cameras_synced > 0) {
-        const failed = res.results.filter((r) => !r.ok).map((r) => r.device_ip)
-        toast.warning(
-          `Rasm ${res.cameras_synced}/${res.cameras_total} terminalga yuklandi. Xatolik: ${failed.join(', ')}`,
-        )
-      } else {
-        toast.error(
-          "Rasm hech bir terminalga yuklanmadi. Kameralar holatini tekshiring.",
-        )
-      }
+      reportSync(res.cameras_synced, res.cameras_total, res.results)
     } catch (err) {
       console.error('Failed to upload face', err)
       const detail =
@@ -242,6 +251,12 @@ export default function EmployeesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!editing && !photo) {
+      setSubmitError(
+        "Yuz rasmi majburiy: rasmsiz xodim terminalga qo‘shilmaydi.",
+      )
+      return
+    }
     const cleaned = trimFormStrings(form)
     // Only JSHIR is required. Blank optional fields must go over the wire as
     // null, not '' — passport_series is UNIQUE, so a second empty string would
@@ -257,22 +272,34 @@ export default function EmployeesPage() {
       setSubmitting(true)
       setSubmitError(null)
       setForm(cleaned)
-      const saved = editing
-        ? await employeesService.update(editing.id, payload)
-        : await employeesService.create(payload)
-      // The employee is saved at this point. A failing photo must not read as a
-      // failed save, so it reports itself through a toast and the dialog closes
-      // either way.
-      const pending = photo
-      setDialogOpen(false)
-      resetForm()
-      if (pending) await uploadPhoto(saved.id, pending)
+      if (editing) {
+        await employeesService.update(editing.id, payload)
+        // An existing employee already lives on the terminals, so a replacement
+        // shot goes up on its own and reports itself; a failure there is not a
+        // failed save.
+        const pending = photo
+        setDialogOpen(false)
+        resetForm()
+        if (pending) await uploadPhoto(editing.id, pending)
+      } else {
+        // One request: the backend creates nobody unless a terminal takes the
+        // face, so there is no half-created employee to report on.
+        const res = await employeesService.create(payload, photo!)
+        setDialogOpen(false)
+        resetForm()
+        reportSync(res.cameras_synced, res.cameras_total, res.results)
+      }
       await refetch()
-    } catch {
+    } catch (err) {
+      const detail =
+        axios.isAxiosError(err) && err.response?.data?.detail
+          ? String(err.response.data.detail)
+          : null
       setSubmitError(
-        editing
-          ? "Xodimni yangilab bo'lmadi. Maydonlarni tekshiring."
-          : "Xodimni yaratib bo'lmadi. Maydonlarni tekshiring.",
+        detail ??
+          (editing
+            ? "Xodimni yangilab bo'lmadi. Maydonlarni tekshiring."
+            : "Xodimni yaratib bo'lmadi. Maydonlarni tekshiring."),
       )
     } finally {
       setSubmitting(false)
@@ -648,7 +675,14 @@ export default function EmployeesPage() {
             ) : null}
 
             <div className="space-y-2">
-              <Label htmlFor="face">Yuz rasmi</Label>
+              <Label htmlFor="face">
+                Yuz rasmi
+                {isEditing ? null : (
+                  <span className="text-destructive" aria-hidden>
+                    {' '}*
+                  </span>
+                )}
+              </Label>
               <div className="flex items-center gap-3">
                 <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full border bg-muted text-muted-foreground">
                   {photoPreview ? (
@@ -686,7 +720,9 @@ export default function EmployeesPage() {
                   <p className="text-xs text-muted-foreground">
                     {photo
                       ? photo.name
-                      : 'Rasmsiz xodim turniketda tanilmaydi.'}
+                      : isEditing
+                        ? 'Yangi rasm tanlansa, terminallardagi rasm almashtiriladi.'
+                        : 'Rasm majburiy: u terminalga yuklanmasa, xodim yaratilmaydi.'}
                   </p>
                 </div>
               </div>
