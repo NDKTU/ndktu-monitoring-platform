@@ -67,3 +67,20 @@ export type EmployeeListResponse = {
   limit: number
   employees: Employee[]
 }
+
+/** What one terminal made of a face upload. */
+export type FaceSyncResult = {
+  device_ip: string
+  ok: boolean
+  error?: string | null
+}
+
+export type FaceUploadResponse = {
+  success: boolean
+  message: string
+  path: string
+  image_path: string
+  cameras_total: number
+  cameras_synced: number
+  results: FaceSyncResult[]
+}

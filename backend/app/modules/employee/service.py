@@ -18,14 +18,20 @@ class EmployeeService:
     def __init__(self, repository: EmployeeRepository) -> None:
         self.repository = repository
 
-    async def _sync_with_hikvision(self, action: str, **kwargs):
+    async def _sync_with_hikvision(self, action: str, **kwargs) -> list[dict]:
+        """Push one change to every active terminal.
+
+        Returns what each terminal made of it. Callers that only fire and forget
+        may ignore the result, but a face upload has to be able to tell the
+        operator whether the person actually reached the turnstiles.
+        """
         if not settings.hikvision.enabled:
-            return
+            return []
             
         camera_repo = CameraRepository(self.repository.session)
         cameras = await camera_repo.get_all_active_cameras()
         
-        async def sync_single_camera(camera):
+        async def sync_single_camera(camera) -> dict:
             hiki_service = HikiUserService(
                 ip_address=camera.device_ip,
                 username=camera.login,
@@ -38,27 +44,36 @@ class EmployeeService:
             if not is_reachable:
                 logging.warning(f"Camera {camera.device_ip} is unreachable. Skipping {action}.")
                 # Optionally, here we could update camera.is_active = False in DB
-                return
+                return {"device_ip": camera.device_ip, "ok": False, "error": "unreachable"}
                 
             try:
                 if action == "create":
-                    await hiki_service.create_user(user_id=kwargs['user_id'], user_name=kwargs['user_name'])
+                    ok = await hiki_service.create_user(user_id=kwargs['user_id'], user_name=kwargs['user_name'])
                 elif action == "modify":
-                    await hiki_service.modify_user(user_id=kwargs['user_id'], new_name=kwargs['user_name'])
+                    ok = await hiki_service.modify_user(user_id=kwargs['user_id'], new_name=kwargs['user_name'])
                 elif action == "delete":
-                    await hiki_service.delete_user(user_id=kwargs['user_id'])
+                    ok = await hiki_service.delete_user(user_id=kwargs['user_id'])
                 elif action == "upload_face":
-                    success = await hiki_service.upload_face_image(user_id=kwargs['user_id'], image_path=kwargs['image_path'])
-                    if not success:
+                    ok = await hiki_service.upload_face_image(user_id=kwargs['user_id'], image_path=kwargs['image_path'])
+                    if not ok:
                          logging.error(f"Failed to upload face on camera {camera.device_ip}")
+                else:
+                    return {"device_ip": camera.device_ip, "ok": False, "error": f"unknown action {action}"}
+                return {
+                    "device_ip": camera.device_ip,
+                    "ok": bool(ok),
+                    "error": None if ok else "rejected by device",
+                }
             except Exception as e:
                 logging.error(f"Failed to {action} on camera {camera.device_ip}: {e}")
+                return {"device_ip": camera.device_ip, "ok": False, "error": str(e)}
 
         import asyncio
         # Run syncs concurrently for all active cameras
         tasks = [sync_single_camera(camera) for camera in cameras]
-        if tasks:
-            await asyncio.gather(*tasks)
+        if not tasks:
+            return []
+        return list(await asyncio.gather(*tasks))
 
     async def create_employee(self, employee: EmployeeCreateRequest) -> Employee:
         new_employee = await self.repository.create_employee(employee)
@@ -354,21 +369,50 @@ class EmployeeService:
         import uuid
         
         employee = await self.get_employee(employee_id)
+        jshir = employee.jshir
+
+        # The shot is about to be pushed to six access-control terminals and to
+        # become the person's avatar, so refuse anything that is not an image
+        # rather than let the devices reject it one by one.
+        if not (file.content_type or "").startswith("image/"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Faqat rasm fayli yuklanishi mumkin.",
+            )
         
         # Save file locally first
         upload_dir = "uploads/faces"
         os.makedirs(upload_dir, exist_ok=True)
         
         ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
-        file_name = f"{employee.jshir}_{uuid.uuid4().hex[:8]}.{ext}"
+        file_name = f"{jshir}_{uuid.uuid4().hex[:8]}.{ext}"
         file_path = os.path.join(upload_dir, file_name)
         
         content = await file.read()
         with open(file_path, "wb") as f:
             f.write(content)
-            
+
+        # The card should show the shot the terminals were given, so remember it
+        # on the employee. Written straight through the repository: the service's
+        # own update_employee() would fire a pointless "modify" at every terminal
+        # for a field they do not hold.
+        await self.repository.update_employee(
+            employee_id, EmployeeUpdateRequest(image_path=file_path)
+        )
+
         # Sync with Hikvision
-        await self._sync_with_hikvision("upload_face", user_id=employee.jshir, image_path=file_path)
-            
-        return {"success": True, "message": "Face uploaded successfully", "path": file_path}
+        results = await self._sync_with_hikvision(
+            "upload_face", user_id=jshir, image_path=file_path
+        )
+        synced = [r for r in results if r["ok"]]
+
+        return {
+            "success": True,
+            "message": "Face uploaded successfully",
+            "path": file_path,
+            "image_path": file_path,
+            "cameras_total": len(results),
+            "cameras_synced": len(synced),
+            "results": results,
+        }
 

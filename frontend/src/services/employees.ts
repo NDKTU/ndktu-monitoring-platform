@@ -5,6 +5,7 @@ import type {
   EmployeeListParams,
   EmployeeListResponse,
   EmployeeUpdateInput,
+  FaceUploadResponse,
 } from '@/types/employee'
 
 export const employeesService = {
@@ -28,5 +29,15 @@ export const employeesService = {
   },
   remove: async (id: number) => {
     await api.delete(`/employees/${id}`)
+  },
+  /** Enrols the face on every active terminal and keeps it as the avatar. */
+  uploadFace: async (id: number, file: File) => {
+    const body = new FormData()
+    body.append('file', file)
+    const { data } = await api.post<FaceUploadResponse>(
+      `/employees/${id}/face`,
+      body,
+    )
+    return data
   },
 }

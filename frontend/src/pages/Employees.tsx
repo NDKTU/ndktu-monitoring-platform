@@ -4,11 +4,14 @@ import {
   Plus,
   Search,
   Trash2,
+  Upload,
   UserCheck,
   UserX,
 } from 'lucide-react'
-import { useState } from 'react'
+import axios from 'axios'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -138,6 +141,12 @@ export default function EmployeesPage() {
   const [form, setForm] = useState<EmployeeCreateInput>(EMPTY_FORM)
   const [toDelete, setToDelete] = useState<Employee | null>(null)
 
+  // The face shot is not part of the employee payload: it goes up as its own
+  // multipart request once the person exists and has an id to hang it on.
+  const [photo, setPhoto] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
   const [positions, setPositions] = useState<Position[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
 
@@ -154,10 +163,25 @@ export default function EmployeesPage() {
 
   const isEditing = editing !== null
 
+  const clearPhoto = () => {
+    // Only object URLs are ours to revoke; an existing avatar is a plain URL.
+    if (photoPreview?.startsWith('blob:')) URL.revokeObjectURL(photoPreview)
+    setPhoto(null)
+    setPhotoPreview(null)
+    if (photoInputRef.current) photoInputRef.current.value = ''
+  }
+
+  const handlePhotoPick = (file: File | null) => {
+    if (photoPreview?.startsWith('blob:')) URL.revokeObjectURL(photoPreview)
+    setPhoto(file)
+    setPhotoPreview(file ? URL.createObjectURL(file) : null)
+  }
+
   const resetForm = () => {
     setForm(EMPTY_FORM)
     setSubmitError(null)
     setEditing(null)
+    clearPhoto()
   }
 
   const openCreate = () => {
@@ -179,7 +203,41 @@ export default function EmployeesPage() {
       work_rate: employee.work_rate ?? 1.0,
     })
     setSubmitError(null)
+    clearPhoto()
+    // Show what the terminals already hold, so it is clear whether picking a
+    // new shot would be adding a face or replacing one.
+    setPhotoPreview(buildImageUrl(employee.image_path))
     setDialogOpen(true)
+  }
+
+  /** Reports, in one toast, how many terminals took the shot. */
+  const uploadPhoto = async (employeeId: number, file: File) => {
+    try {
+      const res = await employeesService.uploadFace(employeeId, file)
+      if (res.cameras_total === 0) {
+        toast.warning(
+          "Rasm saqlandi, lekin terminallarga yuborilmadi: faol kamera yo'q yoki integratsiya o'chirilgan.",
+        )
+      } else if (res.cameras_synced === res.cameras_total) {
+        toast.success(`Rasm ${res.cameras_total} ta terminalga yuklandi.`)
+      } else if (res.cameras_synced > 0) {
+        const failed = res.results.filter((r) => !r.ok).map((r) => r.device_ip)
+        toast.warning(
+          `Rasm ${res.cameras_synced}/${res.cameras_total} terminalga yuklandi. Xatolik: ${failed.join(', ')}`,
+        )
+      } else {
+        toast.error(
+          "Rasm hech bir terminalga yuklanmadi. Kameralar holatini tekshiring.",
+        )
+      }
+    } catch (err) {
+      console.error('Failed to upload face', err)
+      const detail =
+        axios.isAxiosError(err) && err.response?.data?.detail
+          ? String(err.response.data.detail)
+          : "Rasmni yuklab bo'lmadi."
+      toast.error(detail)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -199,13 +257,16 @@ export default function EmployeesPage() {
       setSubmitting(true)
       setSubmitError(null)
       setForm(cleaned)
-      if (editing) {
-        await employeesService.update(editing.id, payload)
-      } else {
-        await employeesService.create(payload)
-      }
+      const saved = editing
+        ? await employeesService.update(editing.id, payload)
+        : await employeesService.create(payload)
+      // The employee is saved at this point. A failing photo must not read as a
+      // failed save, so it reports itself through a toast and the dialog closes
+      // either way.
+      const pending = photo
       setDialogOpen(false)
       resetForm()
+      if (pending) await uploadPhoto(saved.id, pending)
       await refetch()
     } catch {
       setSubmitError(
@@ -585,6 +646,59 @@ export default function EmployeesPage() {
                 </Select>
               </div>
             ) : null}
+
+            <div className="space-y-2">
+              <Label htmlFor="face">Yuz rasmi</Label>
+              <div className="flex items-center gap-3">
+                <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full border bg-muted text-muted-foreground">
+                  {photoPreview ? (
+                    <img
+                      src={photoPreview}
+                      alt=""
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <ContactRound className="size-6" aria-hidden />
+                  )}
+                </div>
+                <div className="min-w-0 space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => photoInputRef.current?.click()}
+                    >
+                      <Upload className="size-4" aria-hidden />
+                      {photo ? 'Boshqa rasm' : 'Rasm tanlash'}
+                    </Button>
+                    {photo ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearPhoto}
+                      >
+                        Bekor qilish
+                      </Button>
+                    ) : null}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {photo
+                      ? photo.name
+                      : 'Rasmsiz xodim turniketda tanilmaydi.'}
+                  </p>
+                </div>
+              </div>
+              <input
+                ref={photoInputRef}
+                id="face"
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(e) => handlePhotoPick(e.target.files?.[0] ?? null)}
+              />
+            </div>
 
             {submitError ? (
               <p
