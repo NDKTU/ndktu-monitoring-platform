@@ -630,9 +630,9 @@ function DayRows({
   eventsLoading: boolean
   onToggle: () => void
 }) {
-  const hasAnyImage = dayEvents.some(
-    (e) => e.enter_image_path || e.exit_image_path,
-  )
+  const hasAnyImage =
+    FEATURES.SHOW_ATTENDANCE_PHOTOS &&
+    dayEvents.some((e) => e.enter_image_path || e.exit_image_path)
   // A synthesised day carries no id and no segments — nothing to expand into.
   const isRecorded = item.id !== null
 

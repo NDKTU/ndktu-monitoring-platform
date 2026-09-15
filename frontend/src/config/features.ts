@@ -22,4 +22,11 @@ export const FEATURES = {
 
   /** Ish stavkasi (work rate): employee form field, table column, detail row. */
   SHOW_WORK_RATE: false,
+
+  /**
+   * Foto: the camera shots in a day's segment table on the employee card,
+   * opened at full size on click. The shots are still captured, stored and
+   * served — only the column is hidden.
+   */
+  SHOW_ATTENDANCE_PHOTOS: false,
 } as const
