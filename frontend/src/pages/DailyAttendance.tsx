@@ -1,11 +1,13 @@
-import { CalendarCheck } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { CalendarCheck, X } from 'lucide-react'
+import { useState } from 'react'
+import { EmployeeSelect } from '@/components/shared/EmployeeSelect'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Pagination } from '@/components/shared/Pagination'
 import { ScrollableTable } from '@/components/shared/ScrollableTable'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -28,14 +30,12 @@ import {
 import { usePagedList } from '@/hooks/usePagedList'
 import { formatTimeOnly } from '@/lib/time'
 import { dailyAttendanceService } from '@/services/dailyAttendance'
-import { employeesService } from '@/services/employees'
 import type {
   AttendanceStatus,
   DailyAttendance,
   DailyAttendanceListParams,
 } from '@/types/dailyAttendance'
 import { ATTENDANCE_STATUSES } from '@/types/dailyAttendance'
-import type { Employee } from '@/types/employee'
 
 const STATUS_LABELS: Record<AttendanceStatus, string> = {
   ON_TIME: 'Vaqtida',
@@ -75,29 +75,14 @@ export default function DailyAttendancePage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [status, setStatus] = useState<'all' | AttendanceStatus>('all')
-  const [employeeId, setEmployeeId] = useState<string>('all')
-
-  const [employees, setEmployees] = useState<Employee[]>([])
-
-  useEffect(() => {
-    let cancelled = false
-    employeesService
-      .list({ limit: 200 })
-      .then((res) => {
-        if (!cancelled) setEmployees(res.employees)
-      })
-      .catch((err) => console.error('Failed to load employees', err))
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const [employeeId, setEmployeeId] = useState<number | null>(null)
 
   const apply = (
     next: Partial<{
       date_from: string
       date_to: string
       status: 'all' | AttendanceStatus
-      employee_id: string
+      employee_id: number | null
     }>,
   ) => {
     if (next.date_from !== undefined) setDateFrom(next.date_from)
@@ -109,15 +94,34 @@ export default function DailyAttendancePage() {
       const df = next.date_from ?? dateFrom
       const dt = next.date_to ?? dateTo
       const st = next.status ?? status
-      const ei = next.employee_id ?? employeeId
+      const ei = next.employee_id !== undefined ? next.employee_id : employeeId
       return {
         ...prev,
+        page: 1,
         date_from: df || undefined,
         date_to: dt || undefined,
         status: st === 'all' ? undefined : st,
-        employee_id: ei === 'all' ? undefined : Number(ei),
+        employee_id: ei ?? undefined,
       }
     })
+  }
+
+  const hasFilters =
+    Boolean(dateFrom) || Boolean(dateTo) || status !== 'all' || employeeId !== null
+
+  const clearFilters = () => {
+    setDateFrom('')
+    setDateTo('')
+    setStatus('all')
+    setEmployeeId(null)
+    setParams((prev) => ({
+      ...prev,
+      page: 1,
+      date_from: undefined,
+      date_to: undefined,
+      status: undefined,
+      employee_id: undefined,
+    }))
   }
 
   return (
@@ -168,25 +172,20 @@ export default function DailyAttendancePage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="w-full space-y-2 sm:w-56">
+          <div className="w-full space-y-2 sm:w-64">
             <Label htmlFor="daily-employee">Xodim</Label>
-            <Select
+            <EmployeeSelect
+              id="daily-employee"
               value={employeeId}
-              onValueChange={(v) => apply({ employee_id: v })}
-            >
-              <SelectTrigger id="daily-employee" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Barcha xodimlar</SelectItem>
-                {employees.map((e) => (
-                  <SelectItem key={e.id} value={String(e.id)}>
-                    {e.full_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onChange={(v) => apply({ employee_id: v })}
+            />
           </div>
+          {hasFilters ? (
+            <Button type="button" variant="ghost" onClick={clearFilters}>
+              <X className="size-4" aria-hidden />
+              Tozalash
+            </Button>
+          ) : null}
         </div>
       </Card>
 
