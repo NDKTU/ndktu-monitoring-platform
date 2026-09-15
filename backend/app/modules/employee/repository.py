@@ -29,6 +29,7 @@ class EmployeeRepository:
         query = select(Employee).options(
             joinedload(Employee.position),
             joinedload(Employee.department).joinedload(Department.work_schedule),
+            joinedload(Employee.work_schedule),
         )
 
         if request.search:
@@ -68,6 +69,7 @@ class EmployeeRepository:
             .options(
                 joinedload(Employee.position),
                 joinedload(Employee.department).joinedload(Department.work_schedule),
+                joinedload(Employee.work_schedule),
             )
             .where(Employee.id == employee_id)
         )
@@ -102,6 +104,7 @@ class EmployeeRepository:
             .options(
                 joinedload(Employee.position),
                 joinedload(Employee.department).joinedload(Department.work_schedule),
+                joinedload(Employee.work_schedule),
             )
             .where(Employee.jshir == jshir)
         )

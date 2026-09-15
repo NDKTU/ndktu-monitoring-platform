@@ -256,11 +256,8 @@ function ScheduleSection({ employeeId }: { employeeId: number }) {
       setLoading(true)
       setError(null)
       const emp = await employeesService.get(employeeId)
-      if (emp.department?.work_schedule) {
-        setSchedule(emp.department.work_schedule)
-      } else {
-        setSchedule(null)
-      }
+      // Their own schedule wins; the department's stands in when they have none.
+      setSchedule(emp.work_schedule ?? emp.department?.work_schedule ?? null)
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed'))
     } finally {

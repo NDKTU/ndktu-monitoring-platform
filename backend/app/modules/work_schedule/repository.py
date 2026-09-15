@@ -1,4 +1,4 @@
-from sqlalchemy import func, select, update
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.employees.model import Employee
@@ -60,11 +60,7 @@ class WorkScheduleRepository:
         return result.scalar_one_or_none()
 
     async def get_employee_count(self, schedule_id: int) -> int:
-        stmt = (
-            select(func.count(Employee.id))
-            .join(Department, Employee.department_id == Department.id)
-            .where(Department.work_schedule_id == schedule_id)
-        )
+        stmt = select(func.count(Employee.id)).where(self._on_schedule(schedule_id))
         return int((await self.session.execute(stmt)).scalar() or 0)
 
     async def update_schedule(
@@ -94,14 +90,25 @@ class WorkScheduleRepository:
         await self.session.commit()
         return db_schedule
 
+    def _on_schedule(self, schedule_id: int):
+        """Everyone this schedule governs: by their own link, or by their
+        department's where they carry no link of their own."""
+        return or_(
+            Employee.work_schedule_id == schedule_id,
+            and_(
+                Employee.work_schedule_id.is_(None),
+                Employee.department_id.in_(
+                    select(Department.id).where(
+                        Department.work_schedule_id == schedule_id
+                    )
+                ),
+            ),
+        )
+
     async def list_employees(
         self, schedule_id: int, offset: int, limit: int
     ) -> tuple[int, list[Employee]]:
-        base = (
-            select(Employee)
-            .join(Department, Employee.department_id == Department.id)
-            .where(Department.work_schedule_id == schedule_id)
-        )
+        base = select(Employee).where(self._on_schedule(schedule_id))
 
         total_stmt = select(func.count()).select_from(base.subquery())
         total = (await self.session.execute(total_stmt)).scalar() or 0
@@ -115,19 +122,13 @@ class WorkScheduleRepository:
     ) -> int:
         if not employee_ids:
             return 0
-        
-        # Get departments of the given employees
-        stmt = select(Employee.department_id).where(
-            Employee.id.in_(employee_ids),
-            Employee.department_id.is_not(None)
-        )
-        dept_ids = (await self.session.execute(stmt)).scalars().all()
-        if not dept_ids:
-            return 0
-            
+
+        # Assigning through the department used to rewrite the schedule for
+        # every colleague in it, and did nothing at all for anyone with no
+        # department. The link now lands on the people actually named.
         result = await self.session.execute(
-            update(Department)
-            .where(Department.id.in_(dept_ids))
+            update(Employee)
+            .where(Employee.id.in_(employee_ids))
             .values(work_schedule_id=schedule_id)
         )
         await self.session.commit()
@@ -138,21 +139,14 @@ class WorkScheduleRepository:
     ) -> int:
         if not employee_ids:
             return 0
-            
-        # Get departments of the given employees
-        stmt = select(Employee.department_id).where(
-            Employee.id.in_(employee_ids),
-            Employee.department_id.is_not(None)
-        )
-        dept_ids = (await self.session.execute(stmt)).scalars().all()
-        if not dept_ids:
-            return 0
-            
+
+        # Only the people's own link is cleared; the department keeps whatever
+        # it carries, so removing one person does not unschedule their unit.
         result = await self.session.execute(
-            update(Department)
+            update(Employee)
             .where(
-                Department.id.in_(dept_ids),
-                Department.work_schedule_id == schedule_id,
+                Employee.id.in_(employee_ids),
+                Employee.work_schedule_id == schedule_id,
             )
             .values(work_schedule_id=None)
         )

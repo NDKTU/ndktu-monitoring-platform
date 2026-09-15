@@ -98,6 +98,22 @@ async def _open_segment_today(
 
 
 async def _get_schedule(session: AsyncSession, employee_id: int) -> WorkSchedule | None:
+    """The schedule a person is judged against.
+
+    Their own comes first; the department's stands in when they have none. Going
+    only through the department left anyone without one unjudgeable, and their
+    days came out with no status at all.
+    """
+    own = (
+        select(WorkSchedule)
+        .join(Employee, Employee.work_schedule_id == WorkSchedule.id)
+        .where(Employee.id == employee_id)
+    )
+    result = await session.execute(own)
+    schedule = result.scalar_one_or_none()
+    if schedule is not None:
+        return schedule
+
     stmt = (
         select(WorkSchedule)
         .join(Department, Department.work_schedule_id == WorkSchedule.id)

@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from app.models.daily_attendance.model import DailyAttendance
     from app.models.positions.model import Position
     from app.models.departments.model import Department
+    from app.models.work_schedules.model import WorkSchedule
 
 
 class Employee(Base, IdIntPk, TimestampMixin):
@@ -38,6 +39,12 @@ class Employee(Base, IdIntPk, TimestampMixin):
     department_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("departments.id", ondelete="SET NULL"), nullable=True
     )
+    # A schedule of this person's own, which wins over whatever their department
+    # carries. Someone with no department had no way to hold a schedule at all,
+    # and without one their days come out with no status.
+    work_schedule_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("work_schedules.id", ondelete="SET NULL"), nullable=True
+    )
 
     attendances: Mapped[list["Attendance"]] = relationship(
         "Attendance", back_populates="employee"
@@ -51,6 +58,7 @@ class Employee(Base, IdIntPk, TimestampMixin):
     daily_attendances: Mapped[list["DailyAttendance"]] = relationship(
         "DailyAttendance", back_populates="employee"
     )
+    work_schedule: Mapped["WorkSchedule | None"] = relationship("WorkSchedule")
 
     @property
     def full_name(self) -> str:

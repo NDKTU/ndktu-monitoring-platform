@@ -25,6 +25,8 @@ export type Employee = {
   department_id?: number | null
   position?: PositionShort | null
   department?: DepartmentShort | null
+  work_schedule_id?: number | null
+  work_schedule?: WorkSchedule | null
   full_name: string
   work_rate: number
 }

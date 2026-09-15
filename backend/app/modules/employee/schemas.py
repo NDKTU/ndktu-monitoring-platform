@@ -2,6 +2,7 @@ from pydantic import BaseModel, computed_field
 from pydantic_settings import SettingsConfigDict
 from app.modules.position.schemas import PositionResponse
 from app.modules.department.schemas import DepartmentResponse
+from app.modules.work_schedule.schemas import WorkScheduleResponse
 
 
 class EmployeeCreateRequest(BaseModel):
@@ -46,6 +47,8 @@ class EmployeeResponse(BaseModel):
     department_id: int | None = None
     position: PositionResponse | None = None
     department: DepartmentResponse | None = None
+    work_schedule_id: int | None = None
+    work_schedule: WorkScheduleResponse | None = None
     work_rate: float = 1.0
 
     @computed_field
