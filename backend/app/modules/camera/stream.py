@@ -26,16 +26,30 @@ def _to_local_naive(value: datetime) -> datetime:
 
 
 
-async def _mark_camera_inactive(camera_id: int) -> None:
-    """Persist is_active=False for a camera whose stream died."""
+# A terminal that has nothing to report still keeps its notification stream
+# alive, so silence this long means the stream is dead even though the socket
+# is not: the read times out, and the loop below reconnects. Generous enough to
+# sit through a quiet night without churning.
+STREAM_READ_TIMEOUT = 300.0
+RECONNECT_DELAY = 5.0
+MAX_RECONNECT_DELAY = 60.0
+# Only say a camera is down once reconnecting has failed repeatedly; a single
+# blip should not light up the UI.
+FAILURES_BEFORE_INACTIVE = 3
+
+
+async def _set_camera_active(camera_id: int, active: bool) -> None:
+    """Persist whether a camera's stream is currently delivering."""
     from app.models.cameras.model import Cameras
 
     async for session in db_helper.session_getter():
         camera = await session.get(Cameras, camera_id)
-        if camera and camera.is_active:
-            camera.is_active = False
+        if camera and camera.is_active != active:
+            camera.is_active = active
             await session.commit()
-            logger.info(f"Marked camera {camera_id} as inactive after stream failure.")
+            logger.info(
+                "Camera %s marked %s.", camera_id, "active" if active else "inactive"
+            )
         break
 
 
@@ -87,7 +101,11 @@ class HikiVisionConnection:
         """Connect to Hikvision device and yield each multipart 'part' as bytes."""
         auth = httpx.DigestAuth(self.login, self.password)
 
-        async with httpx.AsyncClient(timeout=None) as client:
+        # No total deadline — the stream is meant to stay open — but a read
+        # deadline, so a terminal that goes quiet is noticed instead of leaving
+        # the reader blocked on a socket that will never speak again.
+        timeout = httpx.Timeout(None, connect=10.0, read=STREAM_READ_TIMEOUT)
+        async with httpx.AsyncClient(timeout=timeout) as client:
             async with client.stream("GET", self.url, auth=auth) as response:
                 if response.status_code != 200:
                     logger.error(f"Failed to connect to {self.device_ip}: {response.status_code}")
@@ -227,24 +245,72 @@ class HikiVisionConnection:
             logger.warning("Unknown content type in part")
 
     async def stream_events(self):
-        """Main loop: read parts from the stream and process them. Stops if connection fails."""
-        cancelled = False
+        """Stay connected to the terminal for as long as the task lives.
+
+        A dropped connection used to end the stream for good, and a connection
+        that stayed open while the terminal went silent was never noticed at
+        all — both left the platform quietly blind, with the turnstiles still
+        recording everything the platform never saw. So every way out of the
+        read loop other than cancellation leads back into it.
+        """
+        delay = RECONNECT_DELAY
+        failures = 0
         try:
-            logger.info(f"Attempting to connect to {self.device_ip}...")
-            async for part in self.connection_stream():
-                await self.process_part(part)
+            while True:
+                try:
+                    logger.info("Attempting to connect to %s...", self.device_ip)
+                    async for part in self.connection_stream():
+                        if failures:
+                            # Data is flowing again: clear the outage.
+                            await _set_camera_active(self.camera_id, True)
+                        failures = 0
+                        delay = RECONNECT_DELAY
+                        await self.process_part(part)
+                    logger.warning(
+                        "%s closed the notification stream. Reconnecting in %.0fs.",
+                        self.device_ip,
+                        delay,
+                    )
+                except asyncio.CancelledError:
+                    raise
+                except httpx.ReadTimeout:
+                    logger.warning(
+                        "No data from %s for %.0fs — treating the stream as dead. "
+                        "Reconnecting in %.0fs.",
+                        self.device_ip,
+                        STREAM_READ_TIMEOUT,
+                        delay,
+                    )
+                except (httpx.ConnectError, httpx.ReadError, httpx.HTTPError) as e:
+                    logger.warning(
+                        "Connection to %s failed: %s. Reconnecting in %.0fs.",
+                        self.device_ip,
+                        e,
+                        delay,
+                    )
+                except Exception as e:
+                    logger.error(
+                        "Unhandled streaming error from %s: %s. Reconnecting in %.0fs.",
+                        self.device_ip,
+                        e,
+                        delay,
+                    )
+                    logger.error(traceback.format_exc())
+
+                failures += 1
+                if failures == FAILURES_BEFORE_INACTIVE:
+                    await _set_camera_active(self.camera_id, False)
+
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, MAX_RECONNECT_DELAY)
         except asyncio.CancelledError:
-            cancelled = True
-            logger.info(f"Stream task cancelled for {self.device_ip}. Disconnecting...")
+            logger.info("Stream task cancelled for %s. Disconnecting...", self.device_ip)
             raise
-        except (httpx.ConnectError, httpx.ReadError) as e:
-            logger.error(f"Connection to {self.device_ip} failed: {e}. Stopping stream.")
-        except Exception as e:
-            logger.error(f"Unhandled streaming error from {self.device_ip}: {e}. Stopping stream.")
-            logger.error(traceback.format_exc())
         finally:
-            if not cancelled:
-                await _mark_camera_inactive(self.camera_id)
+            # Only ever retract this task's own registration: a restart cancels
+            # the old task after the new one is already registered, and popping
+            # blindly would leave the live stream untracked.
+            if camera_manager.active_streams.get(self.camera_id) is asyncio.current_task():
                 camera_manager.active_streams.pop(self.camera_id, None)
 
 

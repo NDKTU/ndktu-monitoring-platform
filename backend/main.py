@@ -1,11 +1,20 @@
 from app.core.config import settings
 
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import uvicorn
+
+# Without this the root logger sits at WARNING and the camera streams say
+# nothing at all — neither when they connect nor when they reconnect — which is
+# how a silently dead stream went unnoticed for a day.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 
 from app.modules.camera.tasks import close_open_events_at_midnight
 from app.modules.auth.init_rbac import init_rbac
